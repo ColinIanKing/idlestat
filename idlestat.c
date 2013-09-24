@@ -62,6 +62,8 @@ static int display_cstates(struct cpuidle_cstates *cstates, int state,
 {
 	int j;
 	struct cpuidle_cstate *cstate;
+	struct wakeup_info *wakeinfo;
+	struct wakeup_irq *irqinfo;
 
 	for (j = 0; j < cstates->cstate_max + 1; j++) {
 
@@ -76,6 +78,17 @@ static int display_cstates(struct cpuidle_cstates *cstates, int state,
 		       j, cstate->nrdata, cstate->duration,
 		       cstate->avg_time, cstate->min_time,
 		       cstate->max_time);
+	}
+
+	if (strstr(str, IRQ_WAKEUP_UNIT_NAME)) {
+		wakeinfo = &cstates->wakeinfo;
+		irqinfo = wakeinfo->irqinfo;
+		for (j = 0; j < wakeinfo->nrdata; j++, irqinfo++) {
+			printf("\t%s", str);
+			printf("/%sirq id %d, name %s, wakeup count %d\n",
+				(irqinfo->irq_type == 0) ? "hard" : "soft",
+				irqinfo->id, irqinfo->name, irqinfo->count);
+		}
 	}
 
 	return 0;
@@ -237,7 +250,7 @@ static int store_data(double time, int state, int cpu,
 		cstate->duration += data->duration;
 
 		cstate->nrdata++;
-		
+
 		return 0;
 	}
 
@@ -250,12 +263,86 @@ static int store_data(double time, int state, int cpu,
 	cstates->cstate[state].data = data;
 	cstates->cstate_max = MAX(cstates->cstate_max, state);
 	cstates->last_cstate = state;
+	cstates->wakeirq = NULL;
 
 	return 0;
 }
 
+static struct wakeup_irq *find_irqinfo(struct wakeup_info *wakeinfo, int irqid)
+{
+	struct wakeup_irq *irqinfo;
+	int i;
+
+	for (i = 0; i < wakeinfo->nrdata; i++) {
+		irqinfo = &wakeinfo->irqinfo[i];
+		if (irqinfo->id == irqid)
+			return irqinfo;
+	}
+
+	return NULL;
+}
+
+static int store_irq(int cpu, int irqid, char *irqname,
+		      struct cpuidle_datas *datas, int count, int irq_type)
+{
+	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
+	struct wakeup_irq *irqinfo;
+	struct wakeup_info *wakeinfo = &cstates->wakeinfo;
+
+	if (cstates->wakeirq != NULL)
+		return 0;
+
+	irqinfo = find_irqinfo(wakeinfo, irqid);
+	if (NULL == irqinfo) {
+		irqinfo = realloc(wakeinfo->irqinfo,
+				sizeof(*irqinfo) * (wakeinfo->nrdata + 1));
+		if (!irqinfo)
+			return error("realloc irqinfo");
+
+		wakeinfo->irqinfo = irqinfo;
+
+		irqinfo = &wakeinfo->irqinfo[wakeinfo->nrdata++];
+		irqinfo->id = irqid;
+		strcpy(irqinfo->name, irqname);
+		irqinfo->irq_type = irq_type;
+		irqinfo->count = 0;
+	}
+
+	irqinfo->count++;
+
+	cstates->wakeirq = irqinfo;
+
+	return 0;
+}
+
+#define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
+#define TRACE_SOFTIRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16[^]]s"
+
 #define TRACE_CMD_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
+
+static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
+{
+	int cpu, irqid;
+	char irqname[NAMELEN+1];
+
+	if (strstr(buffer, "irq_handler_entry")) {
+		sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid, irqname);
+
+		store_irq(cpu, irqid, irqname, datas, count, 0);
+		return 0;
+	}
+
+	if (strstr(buffer, "softirq_raise")) {
+		sscanf(buffer, TRACE_SOFTIRQ_FORMAT, &cpu, &irqid, irqname);
+
+		store_irq(cpu, irqid, irqname, datas, count, 1);
+		return 0;
+	}
+
+	return -1;
+}
+
 
 static struct cpuidle_datas *idlestat_load(const char *path)
 {
@@ -264,6 +351,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	double time, begin = 0, end = 0;
 	size_t count, start = 1;
 	struct cpuidle_datas *datas;
+	int ret;
 
 	f = fopen(path, "r");
 	if (!f)
@@ -293,19 +381,23 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	read_cpu_topo_info(f, buffer);
 
 	do {
-		if (!strstr(buffer, "cpu_idle"))
+		if (strstr(buffer, "cpu_idle")) {
+			sscanf(buffer, TRACE_FORMAT, &time, &state, &cpu);
+
+			if (start) {
+				begin = time;
+				start = 0;
+			}
+			end = time;
+
+			store_data(time, state, cpu, datas, count);
+			count++;
 			continue;
-
-		sscanf(buffer, TRACE_FORMAT, &time, &state, &cpu);
-
-		if (start) {
-			begin = time;
-			start = 0;
 		}
-		end = time;
 
-		store_data(time, state, cpu, datas, count);
-		count++;
+		ret = get_wakeup_irq(datas, buffer, count);
+		count += (0 == ret) ? 1 : 0;
+
 	} while (fgets(buffer, BUFSIZE, f));
 
 	fclose(f);
