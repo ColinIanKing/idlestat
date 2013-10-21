@@ -29,7 +29,15 @@ struct cpuidle_cstate {
 /* irq type:
  * 0: hardware irq;
  * 1: software irq;
+ * 2: ipi irq;
  */
+enum IRQ_TYPE {
+	HARD_IRQ = 0,
+	SOFT_IRQ,
+	IPI_IRQ,
+	IRQ_TYPE_MAX
+};
+
 struct wakeup_irq {
 	int id;
 	int irq_type;

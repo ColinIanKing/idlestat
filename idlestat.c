@@ -18,6 +18,12 @@
 
 #define IDLESTAT_VERSION "0.2"
 
+static char irq_type_name[][10] = {
+			"hard",
+			"soft",
+			"ipi"
+		};
+
 static char buffer[BUFSIZE];
 
 static inline int error(const char *str)
@@ -86,7 +92,7 @@ static int display_cstates(struct cpuidle_cstates *cstates, int state,
 		for (j = 0; j < wakeinfo->nrdata; j++, irqinfo++) {
 			printf("\t%s", str);
 			printf("/%sirq id %d, name %s, wakeup count %d\n",
-				(irqinfo->irq_type == 0) ? "hard" : "soft",
+				(irqinfo->irq_type < IRQ_TYPE_MAX) ? irq_type_name[irqinfo->irq_type] : "NULL",
 				irqinfo->id, irqinfo->name, irqinfo->count);
 		}
 	}
@@ -317,6 +323,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 
 #define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
 #define TRACE_SOFTIRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16[^]]s"
+#define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
 
 #define TRACE_CMD_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
@@ -329,14 +336,21 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 	if (strstr(buffer, "irq_handler_entry")) {
 		sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid, irqname);
 
-		store_irq(cpu, irqid, irqname, datas, count, 0);
+		store_irq(cpu, irqid, irqname, datas, count, HARD_IRQ);
 		return 0;
 	}
 
-	if (strstr(buffer, "softirq_raise")) {
+	if (strstr(buffer, "softirq_entry")) {
 		sscanf(buffer, TRACE_SOFTIRQ_FORMAT, &cpu, &irqid, irqname);
 
-		store_irq(cpu, irqid, irqname, datas, count, 1);
+		store_irq(cpu, irqid, irqname, datas, count, SOFT_IRQ);
+		return 0;
+	}
+
+	if (strstr(buffer, "ipi_handler_entry")) {
+		sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, &irqid, irqname);
+
+		store_irq(cpu, irqid, irqname, datas, count, IPI_IRQ);
 		return 0;
 	}
 
