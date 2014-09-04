@@ -1281,9 +1281,11 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		return -1;
 	}
 
-	if (bad_filename(options->filename) || bad_filename(options->outfilename)) {
+	if (bad_filename(options->filename))
 		return -1;
-	}
+
+	if (options->outfilename && bad_filename(options->outfilename))
+		return -1;
 
 	if (options->mode == TRACE) {
 		if (options->duration <= 0) {
