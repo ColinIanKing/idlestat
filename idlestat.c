@@ -759,98 +759,95 @@ static void cpu_pstate_running(struct cpuidle_datas *datas, int cpu,
 		open_current_pstate(ps, time);
 }
 
+static int cstate_begin(double time, int state, struct cpuidle_cstates *cstates)
+{
+	struct cpuidle_cstate *cstate = &cstates->cstate[state];
+	struct cpuidle_data *data = cstate->data;
+	int nrdata = cstate->nrdata;
+
+	data = realloc(data, sizeof(*data) * (nrdata + 1));
+	if (!data)
+		return error("realloc data");
+
+	data[nrdata].begin = time;
+
+	cstate->data = data;
+	cstates->cstate_max = MAX(cstates->cstate_max, state);
+	cstates->last_cstate = state;
+	cstates->wakeirq = NULL;
+	return 0;
+}
+
+static int cstate_end(double time, struct cpuidle_cstates *cstates)
+{
+	int last_cstate = cstates->last_cstate;
+	struct cpuidle_cstate *cstate = &cstates->cstate[last_cstate];
+	struct cpuidle_data *data = &cstate->data[cstate->nrdata];
+
+	data->end = time;
+	data->duration = data->end - data->begin;
+
+	/* That happens when precision digit in the file exceed
+	 * 7 (eg. xxx.1000000). Ignoring the result because I don't
+	 * find a way to fix with the sscanf used in the caller
+	 */
+	if (data->duration < 0)
+		data->duration = 0;
+
+	/* convert to us */
+	data->duration *= USEC_PER_SEC;
+	cstates->not_predicted = 0;
+	if (data->duration < cstate->target_residency) {
+		/* over estimated */
+		cstate->premature_wakeup++;
+		cstates->not_predicted = 1;
+	} else {
+		/* under estimated */
+		int next_cstate = last_cstate + 1;
+		if (next_cstate <= cstates->cstate_max) {
+			int tr = cstates->cstate[next_cstate].target_residency;
+			if (tr > 0 && data->duration >= tr)
+				cstate->could_sleep_more++;
+		}
+	}
+
+	cstate->min_time = MIN(cstate->min_time, data->duration);
+	cstate->max_time = MAX(cstate->max_time, data->duration);
+	cstate->avg_time = AVG(cstate->avg_time, data->duration,
+			       cstate->nrdata + 1);
+	cstate->duration += data->duration;
+	cstate->nrdata++;
+
+	/* CPU is no longer idle */
+	cstates->last_cstate = -1;
+
+	return 0;
+}
+
 static int store_data(double time, int state, int cpu,
 		      struct cpuidle_datas *datas, int count)
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
 	struct cpufreq_pstate *pstate = datas->pstates[cpu].pstate;
-	struct cpuidle_cstate *cstate;
-	struct cpuidle_data *data, *tmp;
-	int nrdata, last_cstate = cstates->last_cstate;
-	int next_cstate;
+	int ret;
 
 	/* ignore when we got a "closing" state first */
 	if (state == -1 && cstates->cstate_max == -1)
 		return 0;
 
-	cstate = &cstates->cstate[state == -1 ? last_cstate : state];
-	data = cstate->data;
-	nrdata = cstate->nrdata;
-
 	if (state == -1) {
-
-		data = &data[nrdata];
-
-		data->end = time;
-		data->duration = data->end - data->begin;
-
-		/* That happens when precision digit in the file exceed
-		 * 7 (eg. xxx.1000000). Ignoring the result because I don't
-		 * find a way to fix with the sscanf used in the caller
-		 */
-		if (data->duration < 0)
-			return 0;
-
-		/* convert to us */
-		data->duration *= USEC_PER_SEC;
-		cstates->not_predicted = 0;
-		if (data->duration < cstate->target_residency) {
-			/* over estimated */
-			cstate->premature_wakeup++;
-			cstates->not_predicted = 1;
-		} else {
-			/* under estimated */
-			unsigned int tr;
-
-			next_cstate = ((last_cstate + 1) <= cstates->cstate_max)
-					? last_cstate + 1 : 0;
-			if (next_cstate > 0) {
-				tr = cstates->cstate[next_cstate].target_residency;
-				if ((tr > 0) && (data->duration >= tr))
-					cstate->could_sleep_more++;
-			}
-		}
-
-		cstate->min_time = MIN(cstate->min_time, data->duration);
-
-		cstate->max_time = MAX(cstate->max_time, data->duration);
-
-
-		cstate->avg_time = AVG(cstate->avg_time, data->duration,
-				       cstate->nrdata + 1);
-
-		cstate->duration += data->duration;
-
-		cstate->nrdata++;
-
-		/* need indication if CPU is idle or not */
-		cstates->last_cstate = -1;
-
+		ret = cstate_end(time, cstates);
 		/* update P-state stats if supported */
-		if (pstate)
+		if (!ret && pstate)
 			cpu_pstate_running(datas, cpu, time);
-
-		return 0;
+	} else {
+		ret = cstate_begin(time, state, cstates);
+		/* update P-state stats if supported */
+		if (!ret && pstate)
+			cpu_pstate_idle(datas, cpu, time);
 	}
 
-	tmp = realloc(data, sizeof(*data) * (nrdata + 1));
-	if (!tmp) {
-		free(data);
-		return error("realloc data");
-	}
-	data = tmp;
-
-	data[nrdata].begin = time;
-
-	cstates->cstate[state].data = data;
-	cstates->cstate_max = MAX(cstates->cstate_max, state);
-	cstates->last_cstate = state;
-	cstates->wakeirq = NULL;
-	/* update P-state stats if supported */
-	if (pstate)
-		cpu_pstate_idle(datas, cpu, time);
-
-	return 0;
+	return ret;
 }
 
 static struct wakeup_irq *find_irqinfo(struct wakeup_info *wakeinfo, int irqid)
