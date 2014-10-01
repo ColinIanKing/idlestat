@@ -309,12 +309,12 @@ static int display_wakeup(void *arg, char *cpu)
 		}
 
 		if (irqinfo->irq_type == HARD_IRQ)
-			printf("| %-6s | %-3d | %15.15s | %7d |\n",
+			printf("| %-6s | %-3d | %-15.15s | %7d |\n",
 			       "irq", irqinfo->id, irqinfo->name,
 			       irqinfo->count);
 
 		if (irqinfo->irq_type == IPI_IRQ)
-			printf("| %-6s | --- | %15.15s | %7d |\n",
+			printf("| %-6s | --- | %-15.15s | %7d |\n",
 			       "ipi", irqinfo->name, irqinfo->count);
 	}
 
