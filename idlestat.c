@@ -883,7 +883,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 
 		wakeinfo->irqinfo = irqinfo;
 
-		irqinfo = &wakeinfo->irqinfo[wakeinfo->nrdata++];
+		irqinfo += wakeinfo->nrdata++;
 		irqinfo->id = irqid;
 		strncpy(irqinfo->name, irqname, sizeof(irqinfo->name));
 		irqinfo->name[sizeof(irqinfo->name) - 1] = '\0';
@@ -893,11 +893,10 @@ static int store_irq(int cpu, int irqid, char *irqname,
 	}
 
 	irqinfo->count++;
+	if (cstates->not_predicted)
+		irqinfo->not_predicted++;
 
 	cstates->wakeirq = irqinfo;
-	if (cstates->not_predicted)
-		cstates->wakeirq->not_predicted++;
-
 	return 0;
 }
 
