@@ -214,7 +214,7 @@ static int display_cstates(void *arg, char *cpu)
 		display_factored_time(c->duration, 8);
 		printf(" | ");
 		printf("%5d | %5d | %5d |", c->nrdata,
-		       c->premature_wakeup, c->could_sleep_more);
+		       c->early_wakings, c->late_wakings);
 
 		printf("\n");
 	}
@@ -524,7 +524,8 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 			c->name = cpuidle_cstate_name(cpu, i);
 			c->data = NULL;
 			c->nrdata = 0;
-			c->premature_wakeup = 0;
+			c->early_wakings = 0;
+			c->late_wakings = 0;
 			c->avg_time = 0.;
 			c->max_time = 0.;
 			c->min_time = DBL_MAX;
@@ -799,7 +800,7 @@ static int cstate_end(double time, struct cpuidle_cstates *cstates)
 	cstates->not_predicted = 0;
 	if (data->duration < cstate->target_residency) {
 		/* over estimated */
-		cstate->premature_wakeup++;
+		cstate->early_wakings++;
 		cstates->not_predicted = 1;
 	} else {
 		/* under estimated */
@@ -807,7 +808,7 @@ static int cstate_end(double time, struct cpuidle_cstates *cstates)
 		if (next_cstate <= cstates->cstate_max) {
 			int tr = cstates->cstate[next_cstate].target_residency;
 			if (tr > 0 && data->duration >= tr)
-				cstate->could_sleep_more++;
+				cstate->late_wakings++;
 		}
 	}
 

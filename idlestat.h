@@ -54,8 +54,8 @@ struct cpuidle_cstate {
 	char *name;
 	struct cpuidle_data *data;
 	int nrdata;
-	int premature_wakeup;
-	int could_sleep_more;
+	int early_wakings;
+	int late_wakings;
 	double avg_time;
 	double max_time;
 	double min_time;
