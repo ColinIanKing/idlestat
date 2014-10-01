@@ -279,15 +279,15 @@ static int display_pstates(void *arg, char *cpu)
 
 static void display_wakeup_header(void)
 {
-	charrep('-', 44);
+	charrep('-', 55);
 	printf("\n");
 
-	printf("| Wakeup |  #  |       Name      |  Count  |\n");
+	printf("| IRQ |       Name      |  Count  |  early  |  late   |\n");
 }
 
 static void display_wakeup_footer(void)
 {
-	charrep('-', 44);
+	charrep('-', 55);
 	printf("\n\n");
 }
 
@@ -302,20 +302,21 @@ static int display_wakeup(void *arg, char *cpu)
 	for (i = 0; i < wakeinfo->nrdata; i++, irqinfo++) {
 
 		if (!cpu_header) {
-			display_cpu_header(cpu, 44);
+			display_cpu_header(cpu, 55);
 			cpu_header = true;
-			charrep('-', 44);
+			charrep('-', 55);
 			printf("\n");
 		}
 
-		if (irqinfo->irq_type == HARD_IRQ)
-			printf("| %-6s | %-3d | %-15.15s | %7d |\n",
-			       "irq", irqinfo->id, irqinfo->name,
-			       irqinfo->count);
-
-		if (irqinfo->irq_type == IPI_IRQ)
-			printf("| %-6s | --- | %-15.15s | %7d |\n",
-			       "ipi", irqinfo->name, irqinfo->count);
+		if (irqinfo->id != -1) {
+			printf("| %-3d | %-15.15s | %7d | %7d | %7d |\n",
+			       irqinfo->id, irqinfo->name, irqinfo->count,
+			       irqinfo->early_triggers, irqinfo->late_triggers);
+		} else {
+			printf("| IPI | %-15.15s | %7d | %7d | %7d |\n",
+			       irqinfo->name, irqinfo->count,
+			       irqinfo->early_triggers, irqinfo->late_triggers);
+		}
 	}
 
 	return 0;
