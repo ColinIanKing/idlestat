@@ -854,14 +854,15 @@ static int store_data(double time, int state, int cpu,
 	return ret;
 }
 
-static struct wakeup_irq *find_irqinfo(struct wakeup_info *wakeinfo, int irqid)
+static struct wakeup_irq *find_irqinfo(struct wakeup_info *wakeinfo, int irqid,
+				       const char *irqname)
 {
 	struct wakeup_irq *irqinfo;
 	int i;
 
 	for (i = 0; i < wakeinfo->nrdata; i++) {
 		irqinfo = &wakeinfo->irqinfo[i];
-		if (irqinfo->id == irqid)
+		if (irqinfo->id == irqid && !strcmp(irqinfo->name, irqname))
 			return irqinfo;
 	}
 
@@ -878,7 +879,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 	if (cstates->wakeirq != NULL)
 		return 0;
 
-	irqinfo = find_irqinfo(wakeinfo, irqid);
+	irqinfo = find_irqinfo(wakeinfo, irqid, irqname);
 	if (NULL == irqinfo) {
 		irqinfo = realloc(wakeinfo->irqinfo,
 				sizeof(*irqinfo) * (wakeinfo->nrdata + 1));
