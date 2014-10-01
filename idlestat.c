@@ -797,18 +797,20 @@ static int cstate_end(double time, struct cpuidle_cstates *cstates)
 
 	/* convert to us */
 	data->duration *= USEC_PER_SEC;
-	cstates->not_predicted = 0;
+	cstates->actual_residency = as_expected;
 	if (data->duration < cstate->target_residency) {
 		/* over estimated */
 		cstate->early_wakings++;
-		cstates->not_predicted = 1;
+		cstates->actual_residency = too_short;
 	} else {
 		/* under estimated */
 		int next_cstate = last_cstate + 1;
 		if (next_cstate <= cstates->cstate_max) {
 			int tr = cstates->cstate[next_cstate].target_residency;
-			if (tr > 0 && data->duration >= tr)
+			if (tr > 0 && data->duration >= tr) {
 				cstate->late_wakings++;
+				cstates->actual_residency = too_long;
+			}
 		}
 	}
 
@@ -890,12 +892,15 @@ static int store_irq(int cpu, int irqid, char *irqname,
 		irqinfo->name[sizeof(irqinfo->name) - 1] = '\0';
 		irqinfo->irq_type = irq_type;
 		irqinfo->count = 0;
-		irqinfo->not_predicted = 0;
+		irqinfo->early_triggers = 0;
+		irqinfo->late_triggers = 0;
 	}
 
 	irqinfo->count++;
-	if (cstates->not_predicted)
-		irqinfo->not_predicted++;
+	if (cstates->actual_residency == too_short)
+		irqinfo->early_triggers++;
+	else if (cstates->actual_residency == too_long)
+		irqinfo->late_triggers++;
 
 	cstates->wakeirq = irqinfo;
 	return 0;

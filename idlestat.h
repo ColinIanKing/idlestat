@@ -74,7 +74,8 @@ struct wakeup_irq {
 	int irq_type;
 	char name[NAMELEN+1];
 	int count;
-	int not_predicted;
+	int early_triggers;
+	int late_triggers;
 };
 
 struct wakeup_info {
@@ -88,7 +89,7 @@ struct cpuidle_cstates {
 	int current_cstate;
 	int cstate_max;
 	struct wakeup_irq *wakeirq;
-	int not_predicted;
+	enum {as_expected, too_long, too_short} actual_residency;
 };
 
 struct cpufreq_pstate {
