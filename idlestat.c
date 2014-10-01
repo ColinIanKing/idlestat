@@ -1148,10 +1148,11 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 			if (!cstates)
 				continue;
 		}
-		/* copy state name from first core */
+		/* copy state name from first core (if any) */
 		s_core = list_first_entry(&s_phy->core_head, struct cpu_core,
 				list_core);
-		cstates->name = strdup(s_core->cstates->cstate[i].name);
+		cstates->name = s_core->cstates->cstate[i].name ?
+			strdup(s_core->cstates->cstate[i].name) : NULL;
 
 		result->cstate[i] = *cstates;
 	}
