@@ -63,15 +63,8 @@ struct cpuidle_cstate {
 	int target_residency; /* -1 if not available */
 };
 
-enum IRQ_TYPE {
-	HARD_IRQ = 0,
-	IPI_IRQ,
-	IRQ_TYPE_MAX
-};
-
 struct wakeup_irq {
 	int id;
-	int irq_type;
 	char name[NAMELEN+1];
 	int count;
 	int early_triggers;

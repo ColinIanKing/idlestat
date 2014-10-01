@@ -869,7 +869,7 @@ static struct wakeup_irq *find_irqinfo(struct wakeup_info *wakeinfo, int irqid)
 }
 
 static int store_irq(int cpu, int irqid, char *irqname,
-		      struct cpuidle_datas *datas, int count, int irq_type)
+		     struct cpuidle_datas *datas)
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
 	struct wakeup_irq *irqinfo;
@@ -891,7 +891,6 @@ static int store_irq(int cpu, int irqid, char *irqname,
 		irqinfo->id = irqid;
 		strncpy(irqinfo->name, irqname, sizeof(irqinfo->name));
 		irqinfo->name[sizeof(irqinfo->name) - 1] = '\0';
-		irqinfo->irq_type = irq_type;
 		irqinfo->count = 0;
 		irqinfo->early_triggers = 0;
 		irqinfo->late_triggers = 0;
@@ -921,14 +920,14 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 		assert(sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid,
 			      irqname) == 3);
 
-		store_irq(cpu, irqid, irqname, datas, count, HARD_IRQ);
+		store_irq(cpu, irqid, irqname, datas);
 		return 0;
 	}
 
 	if (strstr(buffer, "ipi_entry")) {
 		assert(sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, irqname) == 2);
 		irqname[strlen(irqname) - 1] = '\0';
-		store_irq(cpu, -1, irqname, datas, count, IPI_IRQ);
+		store_irq(cpu, -1, irqname, datas);
 		return 0;
 	}
 
