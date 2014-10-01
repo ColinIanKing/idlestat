@@ -518,7 +518,7 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 		struct cpuidle_cstate *c;
 
 		cstates[cpu].cstate_max = -1;
-		cstates[cpu].last_cstate = -1;
+		cstates[cpu].current_cstate = -1;
 		for (i = 0; i < MAXCSTATE; i++) {
 			c = &(cstates[cpu].cstate[i]);
 			c->name = cpuidle_cstate_name(cpu, i);
@@ -773,14 +773,14 @@ static int cstate_begin(double time, int state, struct cpuidle_cstates *cstates)
 
 	cstate->data = data;
 	cstates->cstate_max = MAX(cstates->cstate_max, state);
-	cstates->last_cstate = state;
+	cstates->current_cstate = state;
 	cstates->wakeirq = NULL;
 	return 0;
 }
 
 static int cstate_end(double time, struct cpuidle_cstates *cstates)
 {
-	int last_cstate = cstates->last_cstate;
+	int last_cstate = cstates->current_cstate;
 	struct cpuidle_cstate *cstate = &cstates->cstate[last_cstate];
 	struct cpuidle_data *data = &cstate->data[cstate->nrdata];
 
@@ -819,7 +819,7 @@ static int cstate_end(double time, struct cpuidle_cstates *cstates)
 	cstate->nrdata++;
 
 	/* CPU is no longer idle */
-	cstates->last_cstate = -1;
+	cstates->current_cstate = -1;
 
 	return 0;
 }

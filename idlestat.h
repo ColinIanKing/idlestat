@@ -85,7 +85,7 @@ struct wakeup_info {
 struct cpuidle_cstates {
 	struct cpuidle_cstate cstate[MAXCSTATE];
 	struct wakeup_info wakeinfo;
-	int last_cstate;
+	int current_cstate;
 	int cstate_max;
 	struct wakeup_irq *wakeirq;
 	int not_predicted;
