@@ -135,6 +135,8 @@ struct program_options {
 #define FREQUENCY_DISPLAY 0x2
 #define WAKEUP_DISPLAY    0x4
 
+struct cpuidle_datas *idlestat_load(struct program_options *);
+
 struct pstate_energy_info {
 	unsigned int speed;
 	unsigned int cluster_power;
