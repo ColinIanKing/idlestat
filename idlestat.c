@@ -1606,7 +1606,7 @@ int main(int argc, char *argv[], char *const envp[])
 		}
 
 		if (options.energy_model_filename)
-			calculate_energy_consumption();
+			calculate_energy_consumption(&options);
 	}
 
 	release_cpu_topo_cstates();
