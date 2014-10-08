@@ -1604,6 +1604,9 @@ int main(int argc, char *argv[], char *const envp[])
 			dump_cpu_topo_info(display_wakeup, 1);
 			display_wakeup_footer();
 		}
+
+		if (options.energy_model_filename)
+			calculate_energy_consumption();
 	}
 
 	release_cpu_topo_cstates();
