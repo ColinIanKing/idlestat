@@ -128,10 +128,44 @@ struct program_options {
 	char *filename;
 	char *outfilename;
 	int verbose;
+	char *energy_model_filename;
 };
 
 #define IDLE_DISPLAY      0x1
 #define FREQUENCY_DISPLAY 0x2
 #define WAKEUP_DISPLAY    0x4
+
+struct pstate_energy_info {
+	unsigned int speed;
+	unsigned int cluster_power;
+	unsigned int core_power;
+};
+
+struct cstate_energy_info {
+	char cstate_name[NAMELEN];
+	unsigned int cluster_idle_power;
+	unsigned int core_idle_power;
+};
+
+struct wakeup_energy_info {
+	unsigned int cluster_wakeup_energy;
+	unsigned int core_wakeup_energy;
+};
+
+enum energy_file_parse_state {
+	uninitialized = 0,
+	parsed_cluster_info,
+	parsing_cap_states,
+	parsing_c_states
+};
+
+struct cluster_energy_info {
+	unsigned int number_cap_states;
+	unsigned int number_c_states;
+	struct pstate_energy_info *p_energy;
+	struct cstate_energy_info *c_energy;
+	struct wakeup_energy_info wakeup_energy;
+	enum energy_file_parse_state state;
+};
 
 #endif

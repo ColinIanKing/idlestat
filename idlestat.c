@@ -47,6 +47,7 @@
 #include "trace.h"
 #include "list.h"
 #include "topology.h"
+#include "energy_model.h"
 
 #define IDLESTAT_VERSION "0.4-rc1"
 #define USEC_PER_SEC 1000000
@@ -1214,6 +1215,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "idle",        no_argument,       NULL, 'c' },
 		{ "frequency",   no_argument,       NULL, 'p' },
 		{ "wakeup",      no_argument,       NULL, 'w' },
+		{ "energy-model-file",  required_argument, NULL, 'e' },
 		{ 0, 0, 0, 0 }
 	};
 	int c;
@@ -1227,7 +1229,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":df:o:ht:cpwVv",
+		c = getopt_long(argc, argv, ":de:f:o:ht:cpwVv",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1261,6 +1263,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			break;
 		case 'v':
 			options->verbose++;
+			break;
+		case 'e':
+			options->energy_model_filename = optarg;
 			break;
 		case 0:     /* getopt_long() set a variable, just keep going */
 			break;
@@ -1298,6 +1303,11 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			fprintf(stderr, "expected -t <seconds>\n");
 			return -1;
 		}
+	}
+
+	if (parse_energy_model(options->energy_model_filename) < 0) {
+		fprintf(stderr, "can't parse energy model file\n");
+		return -1;
 	}
 
 	if (options->display == 0)
