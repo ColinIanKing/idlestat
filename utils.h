@@ -27,10 +27,15 @@
 #ifndef __UTILS_H
 #define __UTILS_H
 
+#define print_vrb(level, fmt, ...)				\
+	do {							\
+		if (options->verbose >= (level))		\
+			fprintf(stderr, (fmt), ##__VA_ARGS__);	\
+	} while(0)
+
 extern int write_int(const char *path, int val);
 extern int read_int(const char *path, int *val);
 extern int store_line(const char *line, void *data);
 extern int file_read_value(const char *path, const char *name,
 				const char *format, void *value);
-
 #endif
