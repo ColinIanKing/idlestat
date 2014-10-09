@@ -458,10 +458,12 @@ static void release_cstate_info(struct cpuidle_cstates *cstates, int nrcpus)
 	for (cpu = 0; cpu < nrcpus; cpu++) {
 		for (i = 0; i < MAXCSTATE; i++) {
 			struct cpuidle_cstate *c = &(cstates[cpu].cstate[i]);
-			if (c->name)
-				free(c->name);
+			free(c->name);
+			free(c->data);
 		}
 	}
+
+	free(cstates->wakeinfo.irqinfo);
 
 	/* free the cstates array */
 	free(cstates);
