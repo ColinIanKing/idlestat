@@ -26,7 +26,12 @@ Requirements
 ------------
 
 1. It must be run as root in order to access /sys/kernel/debug.
-2. It requires tracing to be enabled in the kernel
+2. It requires tracing to be enabled in the kernel.
+
+Also, IPI reporting requires appropriate tracepoints in the kernel.
+This is available for ARM and ARM64 since v3.17-rc1.  A patch for X86
+was submitted but still not merged upstream.  It can be retrieved here:
+https://lkml.org/lkml/2014/9/17/745
 
 Help
 ----
