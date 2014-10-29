@@ -1502,13 +1502,13 @@ int main(int argc, char *argv[], char *const envp[])
 	 * to root */
 	if ((options.mode == TRACE) && getuid()) {
 		fprintf(stderr, "must be root to run traces\n");
-		return -1;
+		return 1;
 	}
 
 	if (check_window_size() && !options.outfilename) {
 		fprintf(stderr, "The terminal must be at least "
 			"80 columns wide\n");
-		return -1;
+		return 1;
 	}
 
 	if (options.energy_model_filename &&
@@ -1530,7 +1530,7 @@ int main(int argc, char *argv[], char *const envp[])
 		if (idlestat_trace_enable(false)) {
 			fprintf(stderr, "idlestat requires kernel Ftrace and "
 				"debugfs mounted on /sys/kernel/debug\n");
-			return -1;
+			return 1;
 		}
 
 		/* Initialize the traces for cpu_idle and increase the
@@ -1542,29 +1542,29 @@ int main(int argc, char *argv[], char *const envp[])
 
 		/* Remove all the previous traces */
 		if (idlestat_flush_trace())
-			return -1;
+			return 1;
 
 		/* Start the recording */
 		if (idlestat_trace_enable(true))
-			return -1;
+			return 1;
 
 		/* We want to prevent to begin the acquisition with a cpu in
 		 * idle state because we won't be able later to close the
 		 * state and to determine which state it was. */
 		if (idlestat_wake_all())
-			return -1;
+			return 1;
 
 		/* Execute the command or wait a specified delay */
 		if (execute(argc - args, &argv[args], envp, &options))
-			return -1;
+			return 1;
 
 		/* Wake up all cpus again to account for last idle state */
 		if (idlestat_wake_all())
-			return -1;
+			return 1;
 
 		/* Stop tracing */
 		if (idlestat_trace_enable(false))
-			return -1;
+			return 1;
 
 		/* At this point we should have some spurious wake up
 		 * at the beginning of the traces and at the end (wake
@@ -1572,7 +1572,7 @@ int main(int argc, char *argv[], char *const envp[])
 		 * acquisition). We assume these will be lost in the number
 		 * of other traces and could be negligible. */
 		if (idlestat_store(options.filename))
-			return -1;
+			return 1;
 	}
 
 	/* Load the idle states information */
