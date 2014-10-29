@@ -1305,11 +1305,6 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		}
 	}
 
-	if (parse_energy_model(options) < 0) {
-		fprintf(stderr, "can't parse energy model file\n");
-		return -1;
-	}
-
 	if (options->display == 0)
 		options->display = IDLE_DISPLAY;
 
@@ -1514,6 +1509,12 @@ int main(int argc, char *argv[], char *const envp[])
 		fprintf(stderr, "The terminal must be at least "
 			"80 columns wide\n");
 		return -1;
+	}
+
+	if (options.energy_model_filename &&
+		parse_energy_model(&options) < 0) {
+		fprintf(stderr, "can't parse energy model file\n");
+		return 1;
 	}
 
 	/* init cpu topoinfo */

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "energy_model.h"
 #include "idlestat.h"
@@ -91,8 +92,9 @@ int parse_energy_model(struct program_options *options)
 	char *path = options->energy_model_filename;
 	int ret;
 
+	assert(path != NULL);
 
-	f = fopen(options->energy_model_filename, "r");
+	f = fopen(path, "r");
 	if (!f) {
 		if (errno == ENOENT) {
 			ret = make_energy_model_template(options);
