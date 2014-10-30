@@ -542,6 +542,52 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 }
 
 /**
+ * alloc_pstate - allocate, sort, and initialize pstate struct to maintain
+ * statistics of P-state transitions
+ * @pstates: per-CPU P-state statistics struct
+ * @freq: frequency for which the newly pstate is allocated
+ *
+ * Return: the index of the newly allocated pstate struct
+ */
+static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
+{
+	struct cpufreq_pstate *pstate, *tmp;
+	int nrfreq, i, next = 0;
+
+	pstate = pstates->pstate;
+	nrfreq = pstates->max;
+
+	tmp = realloc(pstate, sizeof(*pstate) * (nrfreq + 1));
+	if (!tmp) {
+		perror("realloc pstate");
+		return -1;
+	}
+	pstate = tmp;
+	pstates->pstate = tmp;
+	pstates->max = nrfreq + 1;
+
+	for (i = 0; i < nrfreq && freq <= pstate[i].freq; i++)
+		;
+
+	next = i;
+	memmove(pstate + next + 1, pstate + next, sizeof(*pstate) * (nrfreq - next));
+	for (i = nrfreq; i > next; i--)
+		pstate[i].id = i;
+	if (pstates->current >= next)
+		pstates->current++;
+
+	pstate[next].id = next;
+	pstate[next].freq = freq;
+	pstate[next].count = 0;
+	pstate[next].min_time = DBL_MAX;
+	pstate[next].max_time = 0;
+	pstate[next].avg_time = 0;
+	pstate[next].duration = 0;
+
+	return next;
+}
+
+/**
  * release_pstate_info - free all P-state related structs
  * @pstates: per-cpu array of P-state statistics structs
  * @nrcpus: number of CPUs
@@ -566,8 +612,8 @@ static void release_pstate_info(struct cpufreq_pstates *pstates, int nrcpus)
 }
 
 /**
- * build_pstate_info - parse cpufreq sysfs entries and build per-CPU
- * structs to maintain statistics of P-state transitions
+ * build_pstate_info - allocate and initialize per-CPU structs to maintain
+ * statistics of P-state transitions
  * @nrcpus: number of CPUs
  *
  * Return: per-CPU array of structs (success) or NULL (error)
@@ -583,55 +629,8 @@ static struct cpufreq_pstates *build_pstate_info(int nrcpus)
 	memset(pstates, 0, sizeof(*pstates) * nrcpus);
 
 	for (cpu = 0; cpu < nrcpus; cpu++) {
-		struct cpufreq_pstate *pstate;
-		int nrfreq;
-		char *fpath, *freq, line[256];
-		FILE *sc_av_freq;
-
-		if (asprintf(&fpath, CPUFREQ_AVFREQ_PATH_FORMAT, cpu) < 0)
-			goto clean_exit;
-
-		/* read scaling_available_frequencies for the CPU */
-		sc_av_freq = fopen(fpath, "r");
-		free(fpath);
-		if (!sc_av_freq) {
-			fprintf(stderr, "warning: P-states not supported for "
-				"CPU%d\n", cpu);
-			continue;
-		}
-		freq = fgets(line, sizeof(line)/sizeof(line[0]), sc_av_freq);
-		fclose(sc_av_freq);
-		if (!freq) {
-			/* unlikely to be here, but just in case... */
-			fprintf(stderr, "warning: P-state info not found for "
-				"CPU%d\n", cpu);
-			continue;
-		}
-
-		/* tokenize line and populate each frequency */
-		nrfreq = 0;
-		pstate = NULL;
-		while ((freq = strtok(freq, "\n ")) != NULL) {
-			struct cpufreq_pstate *tmp = realloc(pstate, sizeof(*pstate) * (nrfreq+1));
-			if (!tmp)
-				goto clean_exit;
-			pstate = tmp;
-
-			/* initialize pstate record */
-			pstate[nrfreq].id = nrfreq;
-			pstate[nrfreq].freq = atol(freq);
-			pstate[nrfreq].count = 0;
-			pstate[nrfreq].min_time = DBL_MAX;
-			pstate[nrfreq].max_time = 0.;
-			pstate[nrfreq].avg_time = 0.;
-			pstate[nrfreq].duration = 0.;
-			nrfreq++;
-			freq = NULL;
-		}
-
-		/* now populate cpufreq_pstates for this CPU */
-		pstates[cpu].pstate = pstate;
-		pstates[cpu].max = nrfreq;
+		pstates[cpu].pstate = NULL;
+		pstates[cpu].max = 0;
 		pstates[cpu].current = -1;	/* unknown */
 		pstates[cpu].idle = -1;		/* unknown */
 		pstates[cpu].time_enter = 0.;
@@ -639,10 +638,6 @@ static struct cpufreq_pstates *build_pstate_info(int nrcpus)
 	}
 
 	return pstates;
-
-clean_exit:
-	release_pstate_info(pstates, nrcpus);
-	return NULL;
 }
 
 static int get_current_pstate(struct cpuidle_datas *datas, int cpu,
@@ -717,6 +712,9 @@ static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 
 	cur = get_current_pstate(datas, cpu, &ps, &p);
 	next = freq_to_pstate_index(ps, freq);
+	if (next < 0)
+		next = alloc_pstate(ps, freq);
+	assert(next >= 0);
 
 	switch (cur) {
 	case 1:
@@ -1024,7 +1022,6 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 		} else if (strstr(buffer, "cpu_frequency")) {
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
-			assert(datas->pstates[cpu].pstate != NULL);
 			cpu_change_pstate(datas, cpu, freq, time);
 			count++;
 			continue;
