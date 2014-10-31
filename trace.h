@@ -33,6 +33,7 @@
 #define TRACE_EVENT_PATH TRACE_PATH "/events/enable"
 #define TRACE_FREE TRACE_PATH "/free_buffer"
 #define TRACE_FILE TRACE_PATH "/trace"
+#define TRACE_STAT_FILE TRACE_PATH "/per_cpu/cpu0/stats"
 #define TRACE_IDLE_NRHITS_PER_SEC 10000
 #define TRACE_IDLE_LENGTH 196
 #define TRACE_CPUFREQ_NRHITS_PER_SEC 100

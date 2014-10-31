@@ -124,6 +124,29 @@ static int open_report_file(const char *path)
 	return 0;
 }
 
+#define TRACE_TS_FORMAT "%*[^:]:%lf"
+
+static double get_trace_ts(void)
+{
+	FILE *f;
+	double ts;
+
+	f = fopen(TRACE_STAT_FILE, "r");
+	if (!f)
+		return -1;
+
+	while (fgets(buffer, BUFSIZE, f)) {
+		if (!strstr(buffer, "now ts"))
+			continue;
+		if (!sscanf(buffer, TRACE_TS_FORMAT, &ts))
+			ts = -1;
+		break;
+	}
+	fclose(f);
+
+	return ts;
+}
+
 static void display_cpu_header(char *cpu, int length)
 {
 	charrep('-', length);
@@ -539,6 +562,71 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 		}
 	}
 	return cstates;
+}
+
+static void release_init_pstates(struct init_pstates *initp)
+{
+	if (!initp)
+		return;
+
+	free(initp->freqs);
+	free(initp);
+}
+
+static struct init_pstates *build_init_pstates(void)
+{
+	struct init_pstates *initp;
+	int nrcpus, cpu;
+	unsigned int *freqs;
+
+	nrcpus = sysconf(_SC_NPROCESSORS_CONF);
+	if (nrcpus < 0)
+		return NULL;
+
+	initp = malloc(sizeof(*initp));
+	if (!initp)
+		return NULL;
+
+	freqs = calloc(nrcpus, sizeof(*freqs));
+	if (!freqs) {
+		free(initp);
+		return NULL;
+	}
+
+	initp->nrcpus = nrcpus;
+	initp->freqs = freqs;
+	for (cpu = 0; cpu < nrcpus; cpu++) {
+		char *fpath;
+		unsigned int *freq = &(freqs[cpu]);
+
+		if (asprintf(&fpath, CPUFREQ_CURFREQ_PATH_FORMAT, cpu) < 0) {
+			release_init_pstates(initp);
+			return NULL;
+		}
+		if (read_int(fpath, (int *)freq))
+			*freq = 0;
+		free(fpath);
+	}
+
+	return initp;
+}
+
+static void output_pstates(FILE *f, struct init_pstates *initp, int nrcpus,
+				double ts)
+{
+	int cpu;
+	unsigned int freq;
+	unsigned long ts_sec, ts_usec;
+
+	ts_sec = (unsigned long)ts;
+	ts_usec = (ts - ts_sec) * USEC_PER_SEC;
+
+	for (cpu = 0; cpu < nrcpus; cpu++) {
+		freq = initp? initp->freqs[cpu] : -1;
+		fprintf(f, "%16s-%-5d [%03d] .... %5lu.%06lu: cpu_frequency: "
+			"state=%u cpu_id=%d\n", "idlestat", getpid(), cpu,
+			ts_sec, ts_usec, freq, cpu);
+	}
 }
 
 /**
@@ -1336,7 +1424,8 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	return ret;
 }
 
-static int idlestat_store(const char *path)
+static int idlestat_store(const char *path, double start_ts, double end_ts,
+				struct init_pstates *initp)
 {
 	FILE *f;
 	int ret;
@@ -1344,6 +1433,9 @@ static int idlestat_store(const char *path)
 	ret = sysconf(_SC_NPROCESSORS_CONF);
 	if (ret < 0)
 		return -1;
+
+	if (initp)
+		assert(ret == initp->nrcpus);
 
 	f = fopen(path, "w+");
 
@@ -1359,7 +1451,15 @@ static int idlestat_store(const char *path)
 	/* output topology information */
 	output_cpu_topo_info(f);
 
+	/* emit initial pstate changes */
+	if (initp)
+		output_pstates(f, initp, initp->nrcpus, start_ts);
+
 	ret = idlestat_file_for_each_line(TRACE_FILE, f, store_line);
+
+	/* emit final pstate changes */
+	if (initp)
+		output_pstates(f, NULL, initp->nrcpus, end_ts);
 
 	fclose(f);
 
@@ -1490,6 +1590,8 @@ int main(int argc, char *argv[], char *const envp[])
 	struct cpuidle_datas *datas;
 	struct program_options options;
 	int args;
+	double start_ts = 0, end_ts = 0;
+	struct init_pstates *initp = NULL;
 
 	args = getoptions(argc, argv, &options);
 	if (args <= 0)
@@ -1541,6 +1643,12 @@ int main(int argc, char *argv[], char *const envp[])
 		if (idlestat_flush_trace())
 			return 1;
 
+		/* Get starting timestamp */
+		if (options.display & FREQUENCY_DISPLAY) {
+			start_ts = get_trace_ts();
+			initp = build_init_pstates();
+		}
+
 		/* Start the recording */
 		if (idlestat_trace_enable(true))
 			return 1;
@@ -1563,12 +1671,16 @@ int main(int argc, char *argv[], char *const envp[])
 		if (idlestat_trace_enable(false))
 			return 1;
 
+		/* Get ending timestamp */
+		if (options.display & FREQUENCY_DISPLAY)
+			end_ts = get_trace_ts();
+
 		/* At this point we should have some spurious wake up
 		 * at the beginning of the traces and at the end (wake
 		 * up all cpus and timer expiration for the timer
 		 * acquisition). We assume these will be lost in the number
 		 * of other traces and could be negligible. */
-		if (idlestat_store(options.filename))
+		if (idlestat_store(options.filename, start_ts, end_ts, initp))
 			return 1;
 	}
 
@@ -1607,6 +1719,7 @@ int main(int argc, char *argv[], char *const envp[])
 			calculate_energy_consumption(&options);
 	}
 
+	release_init_pstates(initp);
 	release_cpu_topo_cstates();
 	release_cpu_topo_info();
 	release_pstate_info(datas->pstates, datas->nrcpus);

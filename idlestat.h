@@ -43,6 +43,8 @@
 	"/sys/devices/system/cpu/cpu%d/cpufreq/scaling_available_frequencies"
 #define CPUIDLE_STATENAME_PATH_FORMAT \
 	"/sys/devices/system/cpu/cpu%d/cpuidle/state%d/name"
+#define CPUFREQ_CURFREQ_PATH_FORMAT \
+	"/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_cur_freq"
 
 struct cpuidle_data {
 	double begin;
@@ -170,6 +172,11 @@ struct cluster_energy_info {
 	struct cstate_energy_info *c_energy;
 	struct wakeup_energy_info wakeup_energy;
 	enum energy_file_parse_state state;
+};
+
+struct init_pstates {
+	int nrcpus;
+	unsigned int *freqs;
 };
 
 #endif
