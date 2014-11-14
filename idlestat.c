@@ -676,6 +676,68 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 }
 
 /**
+ * load_and_build_cstate_info - load c-state info written to idlestat trace file.
+ * @f: the file handle of the idlestat trace file
+ * @nrcpus: number of CPUs
+ *
+ * Return: per-CPU array of structs (success) or NULL (error)
+ */
+static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
+{
+	int cpu;
+	struct cpuidle_cstates *cstates;
+
+	cstates = calloc(nrcpus, sizeof(*cstates));
+	if (!cstates)
+		return NULL;
+	memset(cstates, 0, sizeof(*cstates) * nrcpus);
+
+
+	for (cpu = 0; cpu < nrcpus; cpu++) {
+		int i, read_cpu;
+		struct cpuidle_cstate *c;
+
+		cstates[cpu].cstate_max = -1;
+		cstates[cpu].current_cstate = -1;
+
+		sscanf(buffer, "cpuid %d:\n", &read_cpu);
+
+		if (read_cpu != cpu)
+			return NULL;
+
+		for (i = 0; i < MAXCSTATE; i++) {
+			char *name = malloc(128);
+			int residency;
+
+			fgets(buffer, BUFSIZE, f);
+			sscanf(buffer, "\t%s\n", name);
+			fgets(buffer, BUFSIZE, f);
+			sscanf(buffer, "\t%d\n", &residency);
+
+			c = &(cstates[cpu].cstate[i]);
+			if (!strcmp(name, "(null)")) {
+				free(name);
+				c->name = NULL;
+			} else {
+				c->name = name;
+			}
+			c->data = NULL;
+			c->nrdata = 0;
+			c->early_wakings = 0;
+			c->late_wakings = 0;
+			c->avg_time = 0.;
+			c->max_time = 0.;
+			c->min_time = DBL_MAX;
+			c->duration = 0.;
+			c->target_residency = residency;
+		}
+		fgets(buffer, BUFSIZE, f);
+	}
+
+	return cstates;
+}
+
+/**
  * release_pstate_info - free all P-state related structs
  * @pstates: per-cpu array of P-state statistics structs
  * @nrcpus: number of CPUs
@@ -996,6 +1058,27 @@ static int store_irq(int cpu, int irqid, char *irqname,
 	return 0;
 }
 
+static void write_cstate_info(FILE *f, int cpu, char *name, int target)
+{
+	fprintf(f, "\t%s\n", name);
+	fprintf(f, "\t%d\n", target);
+}
+
+void output_cstate_info(FILE *f, int nrcpus) {
+	struct cpuidle_cstates *cstates;
+	int i, j;
+
+	cstates = build_cstate_info(nrcpus);
+
+	for (i=0; i < nrcpus; i++) {
+		fprintf(f, "cpuid %d:\n",  i);
+		for (j=0; j < MAXCSTATE ; j++) {
+			write_cstate_info(f, i, cstates[i].cstate[j].name,
+				cstates[i].cstate[j].target_residency);
+		}
+	}
+}
+
 #define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
 #define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^(](%32s"
 #define TRACECMD_REPORT_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
@@ -1073,11 +1156,23 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 		return ptrerror("malloc datas");
 	}
 
-	datas->cstates = build_cstate_info(nrcpus);
+	/* read topology information */
+	read_cpu_topo_info(f, buffer);
+
+	datas->nrcpus = nrcpus;
+
+	/* read c-state information */
+	if (options->format == IDLESTAT_HEADER)
+		datas->cstates = load_and_build_cstate_info(f, nrcpus);
+	else
+		datas->cstates = build_cstate_info(nrcpus);
 	if (!datas->cstates) {
 		free(datas);
 		fclose(f);
-		return ptrerror("build_cstate_info: out of memory");
+		if (options->format == IDLESTAT_HEADER)
+			return ptrerror("load_and_build_cstate_info: out of memory");
+		else
+			return ptrerror("build_cstate_info: out of memory");
 	}
 
 	datas->pstates = build_pstate_info(nrcpus);
@@ -1087,11 +1182,6 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 		fclose(f);
 		return ptrerror("build_pstate_info: out of memory");
 	}
-
-	datas->nrcpus = nrcpus;
-
-	/* read topology information */
-	read_cpu_topo_info(f, buffer);
 
 	do {
 		if (strstr(buffer, "cpu_idle")) {
@@ -1450,6 +1540,9 @@ static int idlestat_store(const char *path, double start_ts, double end_ts,
 
 	/* output topology information */
 	output_cpu_topo_info(f);
+
+	/* output c-states information */
+	output_cstate_info(f, ret);
 
 	/* emit initial pstate changes */
 	if (initp)
