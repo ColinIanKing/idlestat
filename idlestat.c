@@ -702,8 +702,10 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
 
 		sscanf(buffer, "cpuid %d:\n", &read_cpu);
 
-		if (read_cpu != cpu)
+		if (read_cpu != cpu) {
+			release_cstate_info(cstates, cpu);
 			return NULL;
+		}
 
 		for (i = 0; i < MAXCSTATE; i++) {
 			char *name = malloc(128);
