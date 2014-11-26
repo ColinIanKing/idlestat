@@ -647,8 +647,8 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 
 	tmp = realloc(pstate, sizeof(*pstate) * (nrfreq + 1));
 	if (!tmp) {
-		perror("realloc pstate");
-		return -1;
+		perror(__func__);
+		exit(1);
 	}
 	pstate = tmp;
 	pstates->pstate = tmp;
@@ -866,7 +866,7 @@ static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 	next = freq_to_pstate_index(ps, freq);
 	if (next < 0)
 		next = alloc_pstate(ps, freq);
-	assert(next >= 0);
+	assert (next >= 0);
 
 	switch (cur) {
 	case 1:
@@ -1092,15 +1092,24 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 	char irqname[NAMELEN+1];
 
 	if (strstr(buffer, "irq_handler_entry")) {
-		assert(sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid,
-			      irqname) == 3);
+		if (sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid,
+			      irqname) != 3) {
+			fprintf(stderr, "warning: Unrecognized "
+					"irq_handler_entry record skipped.\n");
+			return -1;
+		}
 
 		store_irq(cpu, irqid, irqname, datas);
 		return 0;
 	}
 
 	if (strstr(buffer, "ipi_entry")) {
-		assert(sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, irqname) == 2);
+		if (sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, irqname) != 2) {
+			fprintf(stderr, "warning: Unrecognized ipi_entry "
+					"record skipped\n");
+			return -1;
+		}
+
 		irqname[strlen(irqname) - 1] = '\0';
 		store_irq(cpu, -1, irqname, datas);
 		return 0;
@@ -1130,20 +1139,23 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 	if (strstr(buffer, "idlestat")) {
 		options->format = IDLESTAT_HEADER;
 		fgets(buffer, BUFSIZE, f);
-		assert(sscanf(buffer, "cpus=%u", &nrcpus) == 1);
+		if (sscanf(buffer, "cpus=%u", &nrcpus) != 1)
+			nrcpus = 0;
 		fgets(buffer, BUFSIZE, f);
 	} else if (strstr(buffer, "# tracer")) {
 		options->format = TRACE_CMD_HEADER;
 		while(!feof(f)) {
 			if (buffer[0] != '#')
 				break;
-			if (strstr(buffer, "#P:"))
-				assert(sscanf(buffer, "#%*[^#]#P:%u", &nrcpus) == 1);
+			if (strstr(buffer, "#P:") &&
+			    sscanf(buffer, "#%*[^#]#P:%u", &nrcpus) != 1)
+				nrcpus = 0;
 			fgets(buffer, BUFSIZE, f);
 		}
 	} else {
 		fprintf(stderr, "%s: unrecognized import format in '%s'\n",
 				__func__, options->filename);
+		fclose(f);
 		return NULL;
 	}
 
@@ -1187,8 +1199,13 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 
 	do {
 		if (strstr(buffer, "cpu_idle")) {
-			assert(sscanf(buffer, TRACE_FORMAT, &time, &state,
-				      &cpu) == 3);
+			if (sscanf(buffer, TRACE_FORMAT, &time, &state, &cpu)
+			    != 3) {
+				fprintf(stderr, "warning: Unrecognized cpuidle "
+					"record. The result of analysis might "
+					"be wrong.\n");
+				continue;
+			}
 
 			if (start) {
 				begin = time;
@@ -1200,8 +1217,13 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 			count++;
 			continue;
 		} else if (strstr(buffer, "cpu_frequency")) {
-			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
-				      &cpu) == 3);
+			if (sscanf(buffer, TRACE_FORMAT, &time, &freq, &cpu)
+			    != 3) {
+				fprintf(stderr, "warning: Unrecognized cpufreq "
+					"record. The result of analysis might "
+					"be wrong.\n");
+				continue;
+			}
 			cpu_change_pstate(datas, cpu, freq, time);
 			count++;
 			continue;
@@ -1718,7 +1740,11 @@ int main(int argc, char *argv[], char *const envp[])
 	if ((options.mode == TRACE) || args < argc) {
 
 		/* Read cpu topology info from sysfs */
-		read_sysfs_cpu_topo();
+		if (read_sysfs_cpu_topo()) {
+			fprintf(stderr, "Failed to read CPU topology info from"
+				" sysfs.\n");
+			return 1;
+		}
 
 		/* Stop tracing (just in case) */
 		if (idlestat_trace_enable(false)) {

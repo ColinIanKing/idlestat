@@ -34,7 +34,6 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <sys/stat.h>
-#include <assert.h>
 
 #include "list.h"
 #include "utils.h"
@@ -313,8 +312,13 @@ static int topo_folder_scan(char *path, folder_filter_t filter)
 			closedir(dir_topology);
 
 			read_topology_cb(newpath, &cpu_info);
-			assert(sscanf(direntp->d_name, "cpu%d",
-				      &cpu_info.cpu_id) == 1);
+			if (sscanf(direntp->d_name, "cpu%d",
+				      &cpu_info.cpu_id) != 1) {
+				ret = -1;
+				fprintf(stderr, "Cannot extract cpu number "
+					"from %s\n", newpath);
+				goto out_free_newpath;
+			}
 			add_topo_info(&g_cpu_topo_list, &cpu_info);
 		}
 
@@ -341,9 +345,7 @@ int init_cpu_topo_info(void)
 
 int read_sysfs_cpu_topo(void)
 {
-	topo_folder_scan("/sys/devices/system/cpu", cpu_filter_cb);
-
-	return 0;
+	return topo_folder_scan("/sys/devices/system/cpu", cpu_filter_cb);
 }
 
 int read_cpu_topo_info(FILE *f, char *buf)
