@@ -1,0 +1,62 @@
+The CSV output is intended as an alternative to default output format to
+facilitate easy importing into spreadsheet applications or further
+processing with scripts.
+
+The file contains one or more of the tables (C-state/P-state/wakeups). In
+case of multiple tables, they are separated by empty lines.
+
+For each table, the first line is the name of the table, i.e. one of
+C-State Table
+P-State Table
+Wakeup Table
+
+The second line is a header line that describes the names of fields in the
+table., E.g.
+cluster,core,cpu,C-state,min (us),max (us),avg (us),total (us),hits,over,under
+
+The following lines are either topological names or data entries. The data
+may relate to a cluster (package), a core (collection of hyperthreaded cpus)
+or a cpu. A cpu belongs to a core (hyperthreading) or a cluster (no ht).
+A core always belongs to a cluster.
+
+Topology names:
+Cluster names are in the first column and all other columns are missing.
+Core names (if present) are in the second column and all subsequent
+columns are missing. The first column is empty.
+Cpu names (regardless of existence of core layer) are in the third column
+and all subsequent columns are missing. The first and second columns
+are empty.
+
+Data lines:
+Each data line begins with 3 empty columns (reserved for topological names)
+and are followed by report-specific values. For meaning of the columns,
+refer to the header line for the report.
+
+
+PARTIAL EXAMPLE (idle state data):
+
+C-State Table
+cluster,core,cpu,C-state,min (us),max (us),avg (us),total (us),hits,over,under
+clusterA
+,,,C6-IVB,0.000000,16739.001498,11564.733154,14953199.967742,1293,0,0
+,core0
+,,,C6-IVB,0.000000,16739.001498,12625.515565,14986486.975104,1187,0,0
+,,cpu0
+,,,C1-IVB,17.000362,19.999221,18.333395,55.000186,3,0,0
+,,,C3-IVB,307.999551,5589.000881,2948.500216,5897.000432,2,0,2
+,,,C6-IVB,70.000067,16741.000116,14009.491556,14990155.965090,1070,17,0
+,,cpu4
+,,,C6-IVB,16.000122,297569.001094,126147.353020,15011535.009369,119,8,0
+(more cores and cpus follow)
+
+The cluster A has been in C6-IVB state for a total of 14.95 seconds
+during 1293 separate idle periods.
+
+The core 0 (belonging to cluster A) has been in C6-IVB for a total of
+14.99 seconds during 1187 separate idle periods.
+
+The cpu 0 (belonging to core 0) has been in 3 different idle states as
+detailed.
+
+The cpu 4 (belonging to core 0) has been in C6-IVB for a total of
+15.01 seconds.
