@@ -3,5 +3,6 @@
 
 extern struct report_ops default_report_ops;
 extern struct report_ops csv_report_ops;
+extern struct report_ops boxless_report_ops;
 
 #endif

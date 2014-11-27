@@ -1211,11 +1211,11 @@ static void help(const char *cmd)
 	fprintf(stderr,
 		"\nUsage:\nTrace mode:\n\t%s --trace -f|--trace-file <filename>"
 		" -o|--output-file <filename> -t|--duration <seconds>"
-		" -C|--csv-report"
+		" -C|--csv-report -B|--boxless-report"
 		" -c|--idle -p|--frequency -w|--wakeup", basename(cmd));
 	fprintf(stderr,
 		"\nReporting mode:\n\t%s --import -f|--trace-file <filename>"
-		" -C|--csv-report"
+		" -C|--csv-report -B|--boxless-report"
 		" -o|--output-file <filename>", basename(cmd));
 	fprintf(stderr,
 		"\n\nExamples:\n1. Run a trace, post-process the results"
@@ -1259,6 +1259,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "wakeup",      no_argument,       NULL, 'w' },
 		{ "energy-model-file",  required_argument, NULL, 'e' },
 		{ "csv-report",  no_argument,       NULL, 'C' },
+		{ "boxless-report", no_argument,    NULL, 'B' },
 		{ 0, 0, 0, 0 }
 	};
 	int c;
@@ -1274,7 +1275,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":de:f:o:ht:cpwVvC",
+		c = getopt_long(argc, argv, ":de:f:o:ht:cpwVvCB",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1314,6 +1315,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			break;
 		case 'C':
 			options->report_ops = &csv_report_ops;
+			break;
+		case 'B':
+			options->report_ops = &boxless_report_ops;
 			break;
 		case 0:     /* getopt_long() set a variable, just keep going */
 			break;
