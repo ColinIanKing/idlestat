@@ -28,6 +28,12 @@
 #include <stdio.h>
 #undef _GNU_SOURCE
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <assert.h>
 
 #include "utils.h"
 
@@ -113,4 +119,82 @@ int file_read_value(const char *path, const char *name,
 out_free:
 	free(rpath);
 	return ret;
+}
+
+int redirect_stdout_to_file(const char *path)
+{
+	int ret = 0;
+	int fd;
+
+	if (path) {
+		fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
+					S_IRUSR | S_IWUSR | S_IRGRP |S_IROTH);
+		if (fd < 0) {
+			fprintf(stderr, "%s: failed to open '%s'\n", __func__, path);
+			return -1;
+		}
+
+		fflush(stdout);
+		ret = dup2(fd, STDOUT_FILENO);
+		close(fd);
+
+		if (ret < 0) {
+			fprintf(stderr, "%s: failed to duplicate '%s'\n", __func__, path);
+			unlink(path);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+void display_factored_time(double time, int align)
+{
+	char buffer[128];
+
+	if (time < 1000) {
+		sprintf(buffer, "%.0lfus", time);
+		printf("%*s", align, buffer);
+	}
+	else if (time < 1000000) {
+		sprintf(buffer, "%.2lfms", time / 1000.0);
+		printf("%*s", align, buffer);
+	}
+	else {
+		sprintf(buffer, "%.2lfs", time / 1000000.0);
+		printf("%*s", align, buffer);
+	}
+}
+
+void display_factored_freq(int freq, int align)
+{
+	char buffer[128];
+
+	if (freq < 1000) {
+		sprintf(buffer, "%dHz", freq);
+		printf("%*s", align, buffer);
+	} else if (freq < 1000000) {
+		sprintf(buffer, "%.2fMHz", (float)freq / 1000.0);
+		printf("%*s", align, buffer);
+	} else {
+		sprintf(buffer, "%.2fGHz", (float)freq / 1000000.0);
+		printf("%*s", align, buffer);
+	}
+}
+
+int check_window_size(void)
+{
+	struct winsize winsize;
+
+	/* Output is redirected */
+	if (!isatty(STDOUT_FILENO))
+		return 0;
+
+	/* Get terminal window size */
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
+
+	if (winsize.ws_col >= 80)
+		return 0;
+
+	return -1;
 }

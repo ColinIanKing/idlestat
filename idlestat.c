@@ -27,17 +27,12 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <sched.h>
 #include <string.h>
 #include <float.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
 #include <sys/time.h>
-#include <sys/types.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <assert.h>
@@ -48,6 +43,7 @@
 #include "list.h"
 #include "topology.h"
 #include "energy_model.h"
+#include "report_ops.h"
 
 #define IDLESTAT_VERSION "0.4-rc1"
 #define USEC_PER_SEC 1000000
@@ -90,40 +86,6 @@ static inline void *ptrerror(const char *str)
 	return NULL;
 }
 
-static void charrep(char c, int count)
-{
-	int i;
-	for (i = 0; i < count; i++)
-		printf("%c", c);
-}
-
-static int open_report_file(const char *path)
-{
-	int fd;
-	int ret = 0;
-
-	if (path) {
-		fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
-					S_IRUSR | S_IWUSR | S_IRGRP |S_IROTH);
-		if (fd < 0) {
-			fprintf(stderr, "%s: failed to open '%s'\n", __func__, path);
-			return -1;
-		}
-
-		close(STDOUT_FILENO);
-
-		ret = dup2(fd, STDOUT_FILENO);
-		close(fd);
-
-		if (ret < 0) {
-			fprintf(stderr, "%s: failed to duplicate '%s'\n", __func__, path);
-			return ret;
-		}
-	}
-
-	return 0;
-}
-
 #define TRACE_TS_FORMAT "%*[^:]:%lf"
 
 static double get_trace_ts(void)
@@ -147,67 +109,7 @@ static double get_trace_ts(void)
 	return ts;
 }
 
-static void display_cpu_header(char *cpu, int length)
-{
-	charrep('-', length);
-	printf("\n");
-
-	if (strstr(cpu, "cluster"))
-		printf("| %-*s |\n", length - 4, cpu);
-	else if (strstr(cpu, "core"))
-		printf("|      %-*s |\n", length - 9, cpu);
-	else printf("|             %-*s |\n", length - 16, cpu);
-}
-
-static void display_factored_time(double time, int align)
-{
-	char buffer[128];
-
-	if (time < 1000) {
-		sprintf(buffer, "%.0lfus", time);
-		printf("%*s", align, buffer);
-	}
-	else if (time < 1000000) {
-		sprintf(buffer, "%.2lfms", time / 1000.0);
-		printf("%*s", align, buffer);
-	}
-	else {
-		sprintf(buffer, "%.2lfs", time / 1000000.0);
-		printf("%*s", align, buffer);
-	}
-}
-
-static void display_factored_freq(int freq, int align)
-{
-	char buffer[128];
-
-	if (freq < 1000) {
-		sprintf(buffer, "%dHz", freq);
-		printf("%*s", align, buffer);
-	} else if (freq < 1000000) {
-		sprintf(buffer, "%.2fMHz", (float)freq / 1000.0);
-		printf("%*s", align, buffer);
-	} else {
-		sprintf(buffer, "%.2fGHz", (float)freq / 1000000.0);
-		printf("%*s", align, buffer);
-	}
-}
-
-static void display_cstates_header(void)
-{
-	charrep('-', 80);
-	printf("\n");
-
-	printf("| C-state  |   min    |   max    |   avg    |   total  | hits  |  over | under |\n");
-}
-
-static void display_cstates_footer(void)
-{
-	charrep('-', 80);
-	printf("\n\n");
-}
-
-static int display_cstates(void *arg, char *cpu)
+static int display_cstates(struct report_ops *ops, void *arg, char *cpu, void *report_data)
 {
 	int i;
 	bool cpu_header = false;
@@ -221,46 +123,19 @@ static int display_cstates(void *arg, char *cpu)
 			continue;
 
 		if (!cpu_header) {
-			display_cpu_header(cpu, 80);
+			ops->cstate_cpu_header(cpu, report_data);
 			cpu_header = true;
-			charrep('-', 80);
-			printf("\n");
 		}
 
-		printf("| %8s | ", c->name);
-		display_factored_time(c->min_time == DBL_MAX ? 0. :
-				      c->min_time, 8);
-		printf(" | ");
-		display_factored_time(c->max_time, 8);
-		printf(" | ");
-		display_factored_time(c->avg_time, 8);
-		printf(" | ");
-		display_factored_time(c->duration, 8);
-		printf(" | ");
-		printf("%5d | %5d | %5d |", c->nrdata,
-		       c->early_wakings, c->late_wakings);
-
-		printf("\n");
+		ops->cstate_single_state(c, report_data);
 	}
+	if (cpu_header)
+		ops->cstate_end_cpu(report_data);
 
 	return 0;
 }
 
-static void display_pstates_header(void)
-{
-	charrep('-', 64);
-	printf("\n");
-
-	printf("| P-state  |   min    |   max    |   avg    |   total  | hits  |\n");
-}
-
-static void display_pstates_footer(void)
-{
-	charrep('-', 64);
-	printf("\n\n");
-}
-
-static int display_pstates(void *arg, char *cpu)
+static int display_pstates(struct report_ops *ops, void *arg, char *cpu, void *report_data)
 {
 	int i;
 	bool cpu_header = false;
@@ -275,47 +150,20 @@ static int display_pstates(void *arg, char *cpu)
 			continue;
 
 		if (!cpu_header) {
-			display_cpu_header(cpu, 64);
+			ops->pstate_cpu_header(cpu, report_data);
 			cpu_header = true;
-			charrep('-', 64);
-			printf("\n");
 		}
 
-		printf("| ");
-		display_factored_freq(p->freq, 8);
-		printf(" | ");
-		display_factored_time(p->min_time == DBL_MAX ? 0. :
-				      p->min_time, 8);
-		printf(" | ");
-		display_factored_time(p->max_time, 8);
-		printf(" | ");
-		display_factored_time(p->avg_time, 8);
-		printf(" | ");
-		display_factored_time(p->duration, 8);
-		printf(" | ");
-		printf("%5d", p->count);
-		printf(" | ");
-		printf("\n");
+		ops->pstate_single_state(p, report_data);
 	}
+
+	if (cpu_header)
+		ops->pstate_end_cpu(report_data);
 
 	return 0;
 }
 
-static void display_wakeup_header(void)
-{
-	charrep('-', 55);
-	printf("\n");
-
-	printf("| IRQ |       Name      |  Count  |  early  |  late   |\n");
-}
-
-static void display_wakeup_footer(void)
-{
-	charrep('-', 55);
-	printf("\n\n");
-}
-
-static int display_wakeup(void *arg, char *cpu)
+static int display_wakeup(struct report_ops *ops, void *arg, char *cpu, void *report_data)
 {
 	int i;
 	bool cpu_header = false;
@@ -326,22 +174,15 @@ static int display_wakeup(void *arg, char *cpu)
 	for (i = 0; i < wakeinfo->nrdata; i++, irqinfo++) {
 
 		if (!cpu_header) {
-			display_cpu_header(cpu, 55);
+			ops->wakeup_cpu_header(cpu, report_data);
 			cpu_header = true;
-			charrep('-', 55);
-			printf("\n");
 		}
 
-		if (irqinfo->id != -1) {
-			printf("| %-3d | %-15.15s | %7d | %7d | %7d |\n",
-			       irqinfo->id, irqinfo->name, irqinfo->count,
-			       irqinfo->early_triggers, irqinfo->late_triggers);
-		} else {
-			printf("| IPI | %-15.15s | %7d | %7d | %7d |\n",
-			       irqinfo->name, irqinfo->count,
-			       irqinfo->early_triggers, irqinfo->late_triggers);
-		}
+		ops->wakeup_single_state(irqinfo, report_data);
 	}
+
+	if (cpu_header)
+		ops->wakeup_end_cpu(report_data);
 
 	return 0;
 }
@@ -1424,6 +1265,8 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 	options->outfilename = NULL;
 	options->mode = -1;
 	options->format = -1;
+	options->report_ops = &default_report_ops;
+
 	while (1) {
 
 		int optindex = 0;
@@ -1685,23 +1528,6 @@ static int execute(int argc, char *argv[], char *const envp[],
 	return -1;
 }
 
-static int check_window_size(void)
-{
-	struct winsize winsize;
-
-	/* Output is redirected */
-	if (!isatty(STDOUT_FILENO))
-		return 0;
-
-	/* Get terminal window size */
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
-
-	if (winsize.ws_col >= 80)
-		return 0;
-
-	return -1;
-}
-
 int main(int argc, char *argv[], char *const envp[])
 {
 	struct cpuidle_datas *datas;
@@ -1709,6 +1535,7 @@ int main(int argc, char *argv[], char *const envp[])
 	int args;
 	double start_ts = 0, end_ts = 0;
 	struct init_pstates *initp = NULL;
+	struct report_ops *output_handler = NULL;
 
 	args = getoptions(argc, argv, &options);
 	if (args <= 0)
@@ -1721,11 +1548,10 @@ int main(int argc, char *argv[], char *const envp[])
 		return 1;
 	}
 
-	if (check_window_size() && !options.outfilename) {
-		fprintf(stderr, "The terminal must be at least "
-			"80 columns wide\n");
+	output_handler = options.report_ops;
+
+	if (output_handler->check_output(&options, options.report_data))
 		return 1;
-	}
 
 	if (options.energy_model_filename &&
 		parse_energy_model(&options) < 0) {
@@ -1815,29 +1641,31 @@ int main(int argc, char *argv[], char *const envp[])
 	 * the same cluster
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
-		if (open_report_file(options.outfilename))
+		if (output_handler->open_report_file(options.outfilename, options.report_data))
 			return -1;
 
 		if (options.display & IDLE_DISPLAY) {
-			display_cstates_header();
-			dump_cpu_topo_info(display_cstates, 1);
-			display_cstates_footer();
+			output_handler->cstate_table_header(options.report_data);
+			dump_cpu_topo_info(output_handler, options.report_data, display_cstates, 1);
+			output_handler->cstate_table_footer(options.report_data);
 		}
 
 		if (options.display & FREQUENCY_DISPLAY) {
-			display_pstates_header();
-			dump_cpu_topo_info(display_pstates, 0);
-			display_pstates_footer();
+			output_handler->pstate_table_header(options.report_data);
+			dump_cpu_topo_info(output_handler, options.report_data, display_pstates, 0);
+			output_handler->pstate_table_footer(options.report_data);
 		}
 
 		if (options.display & WAKEUP_DISPLAY) {
-			display_wakeup_header();
-			dump_cpu_topo_info(display_wakeup, 1);
-			display_wakeup_footer();
+			output_handler->wakeup_table_header(options.report_data);
+			dump_cpu_topo_info(output_handler, options.report_data, display_wakeup, 1);
+			output_handler->wakeup_table_footer(options.report_data);
 		}
 
 		if (options.energy_model_filename)
 			calculate_energy_consumption(&options);
+
+		output_handler->close_report_file(options.report_data);
 	}
 
 	release_init_pstates(initp);

@@ -38,4 +38,9 @@ extern int read_int(const char *path, int *val);
 extern int store_line(const char *line, void *data);
 extern int file_read_value(const char *path, const char *name,
 				const char *format, void *value);
+extern int redirect_stdout_to_file(const char *path);
+extern void display_factored_time(double time, int align);
+extern void display_factored_freq(int freq, int align);
+extern int check_window_size(void);
+
 #endif
