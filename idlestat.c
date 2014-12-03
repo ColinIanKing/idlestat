@@ -964,7 +964,7 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 	return -1;
 }
 
-struct cpuidle_datas *idlestat_load(struct program_options *options)
+struct cpuidle_datas *idlestat_load(const char *filename)
 {
 	FILE *f;
 	unsigned int state = 0, freq = 0, cpu = 0, nrcpus = 0;
@@ -974,10 +974,10 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 	int ret;
 	enum formats format;
 
-	f = fopen(options->filename, "r");
+	f = fopen(filename, "r");
 	if (!f) {
 		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__,
-					options->filename);
+					filename);
 		return NULL;
 	}
 
@@ -1001,7 +1001,7 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 		}
 	} else {
 		fprintf(stderr, "%s: unrecognized import format in '%s'\n",
-				__func__, options->filename);
+				__func__, filename);
 		fclose(f);
 		return NULL;
 	}
@@ -1647,7 +1647,7 @@ int main(int argc, char *argv[], char *const envp[])
 	}
 
 	/* Load the idle states information */
-	datas = idlestat_load(&options);
+	datas = idlestat_load(options.filename);
 
 	if (!datas)
 		return 1;

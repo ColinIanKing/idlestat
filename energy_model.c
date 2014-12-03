@@ -33,7 +33,7 @@ static int make_energy_model_template(struct program_options *options)
 
 	init_cpu_topo_info();
 	read_sysfs_cpu_topo();
-	datas = idlestat_load(options);
+	datas = idlestat_load(options->filename);
 	if (!datas)
 		return -1;
 	establish_idledata_to_topo(datas);
