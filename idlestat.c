@@ -79,18 +79,6 @@ static inline int bad_filename(const char *filename)
 	return 0;
 }
 
-static inline int error(const char *str)
-{
-	perror(str);
-	return -1;
-}
-
-static inline void *ptrerror(const char *str)
-{
-	perror(str);
-	return NULL;
-}
-
 #define TRACE_TS_FORMAT "%*[^:]:%lf"
 
 static int get_trace_ts(double *ts)
@@ -383,12 +371,14 @@ int cpuidle_get_target_residency(int cpu, int state)
  * structs to maintain statistics of C-state transitions
  * @nrcpus: number of CPUs
  *
- * Return: per-CPU array of structs (success) or NULL (error)
+ * Return: per-CPU array of structs (success) or ptrerror() (error)
  */
 static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 {
 	int cpu;
 	struct cpuidle_cstates *cstates;
+
+	assert(nrcpus > 0);
 
 	cstates = calloc(nrcpus, sizeof(*cstates));
 	if (!cstates)
@@ -536,12 +526,14 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
  * @f: the file handle of the idlestat trace file
  * @nrcpus: number of CPUs
  *
- * Return: per-CPU array of structs (success) or NULL (error)
+ * Return: per-CPU array of structs (success) or ptrerror() (error)
  */
 static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
 {
 	int cpu;
 	struct cpuidle_cstates *cstates;
+
+	assert(nrcpus > 0);
 
 	cstates = calloc(nrcpus, sizeof(*cstates));
 	if (!cstates)
@@ -564,7 +556,7 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
 				"Expected: cpuid %d:\n"
 				"Read: %s",
 				__FUNCTION__, cpu, buffer);
-			return NULL;
+			return ptrerror(NULL);
 		}
 
 		for (i = 0; i < MAXCSTATE; i++) {
@@ -931,6 +923,7 @@ void output_cstate_info(FILE *f, int nrcpus) {
 	int i, j;
 
 	cstates = build_cstate_info(nrcpus);
+	assert(!is_err(cstates));
 
 	for (i=0; i < nrcpus; i++) {
 		fprintf(f, "cpuid %d:\n",  i);
@@ -992,7 +985,7 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 	if (!f) {
 		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__,
 					filename);
-		return NULL;
+		return ptrerror(NULL);
 	}
 
 	/* version line */
@@ -1017,7 +1010,7 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 		fprintf(stderr, "%s: unrecognized import format in '%s'\n",
 				__func__, filename);
 		fclose(f);
-		return NULL;
+		return ptrerror(NULL);
 	}
 
 	if (!nrcpus) {
@@ -1041,10 +1034,10 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 		datas->cstates = load_and_build_cstate_info(f, nrcpus);
 	else
 		datas->cstates = build_cstate_info(nrcpus);
-	if (!datas->cstates) {
+	if (is_err(datas->cstates)) {
 		free(datas);
 		fclose(f);
-		return NULL;
+		return ptrerror(NULL);
 	}
 
 	datas->pstates = build_pstate_info(nrcpus);
@@ -1660,7 +1653,7 @@ int main(int argc, char *argv[], char *const envp[])
 	/* Load the idle states information */
 	datas = idlestat_load(options.filename);
 
-	if (!datas)
+	if (is_err(datas))
 		return 1;
 
 	/* Compute cluster idle intersection between cpus belonging to

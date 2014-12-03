@@ -37,6 +37,26 @@
 
 #include "utils.h"
 
+static void * const ERROR_VALUE_PTR = (void * const)&ERROR_VALUE_PTR;
+
+int error(const char *str)
+{
+	perror(str);
+	return -1;
+}
+
+void *ptrerror(const char *str)
+{
+	if (str != NULL)
+		perror(str);
+	return ERROR_VALUE_PTR;
+}
+
+int is_err(const void *ptr)
+{
+	return ptr == ERROR_VALUE_PTR;
+}
+
 int write_int(const char *path, int val)
 {
 	FILE *f;

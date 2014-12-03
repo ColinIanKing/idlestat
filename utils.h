@@ -43,4 +43,8 @@ extern void display_factored_time(double time, int align);
 extern void display_factored_freq(int freq, int align);
 extern int check_window_size(void);
 
+extern int error(const char *str);
+extern void *ptrerror(const char *str);
+extern int is_err(const void *ptr);
+
 #endif
