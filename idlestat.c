@@ -223,6 +223,11 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 	struct cpuidle_data *data = NULL;
 	size_t index;
 
+	/*
+	 * Watch out! These may create aliases that end up stored
+	 * permanently! (e.g. if nrcpus == 1)
+	 * TODO: This is obviously a bug.
+	 */
 	if (!c1)
 		return c2;
 	if (!c2)
@@ -231,6 +236,8 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 	result = calloc(sizeof(*result), 1);
 	if (!result)
 		return ptrerror(__func__);
+
+	result->inter_result = 1;
 
 	for (i = 0, index = 0; i < c1->nrdata; i++) {
 
@@ -319,7 +326,7 @@ static char *cpuidle_cstate_name(int cpu, int state)
  * @cstates: per-cpu array of C-state statistics structs
  * @nrcpus: number of CPUs
  */
-static void release_cstate_info(struct cpuidle_cstates *cstates, int nrcpus)
+void release_cstate_info(struct cpuidle_cstates *cstates, int nrcpus)
 {
 	int cpu, i;
 
@@ -1103,7 +1110,7 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 
 struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 {
-	struct cpuidle_cstate *c1, *cstates;
+	struct cpuidle_cstate *c1, *cstates, *tmp;
 	struct cpuidle_datas *result;
 	int i, j;
 	int cstate_max = -1;
@@ -1120,7 +1127,7 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 		return NULL;
 	}
 
-	/* hack but negligeable overhead */
+	/* hack but negligible overhead */
 	for (i = 0; i < datas->nrcpus; i++)
 		cstate_max = MAX(cstate_max, datas->cstates[i].cstate_max);
 	result->cstates[0].cstate_max = cstate_max;
@@ -1131,7 +1138,14 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 
 			c1 = &datas->cstates[j].cstate[i];
 
-			cstates = inter(cstates, c1);
+			tmp = inter(cstates, c1);
+			if (cstates && cstates != tmp &&
+				cstates->inter_result) {
+				free(cstates->data);
+				free(cstates);
+			}
+			cstates = tmp;
+
 			if (!cstates)
 				continue;
 			if (is_err(cstates)) {
@@ -1145,6 +1159,19 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 		cstates->name = strdup(datas->cstates[0].cstate[i].name);
 
 		result->cstates[0].cstate[i] = *cstates;
+		result->cstates[0].cstate[i].inter_result = 0;
+
+		/*
+		 * Free cstates if it has been allocated by inter()
+		 * Do not free things pointed to by members of cstates
+		 * even if you free cstates itself.
+		 */
+		if (cstates && cstates->inter_result) {
+			free(cstates);
+		} else {
+			fprintf(stderr, "Warning: %s aliased cstates at %p\n",
+				__func__, cstates);
+		}
 	}
 
 	return result;
@@ -1152,7 +1179,7 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 
 struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 {
-	struct cpuidle_cstate *c1, *cstates;
+	struct cpuidle_cstate *c1, *cstates, *tmp;
 	struct cpuidle_cstates *result;
 	struct cpu_cpu      *s_cpu;
 	int i;
@@ -1166,7 +1193,7 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 	if (!result)
 		return NULL;
 
-	/* hack but negligeable overhead */
+	/* hack but negligible overhead */
 	list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu)
 		cstate_max = MAX(cstate_max, s_cpu->cstates->cstate_max);
 	result->cstate_max = cstate_max;
@@ -1176,7 +1203,14 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 		list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu) {
 			c1 = &s_cpu->cstates->cstate[i];
 
-			cstates = inter(cstates, c1);
+			tmp = inter(cstates, c1);
+			if (cstates && cstates != tmp &&
+				cstates->inter_result) {
+				free(cstates->data);
+				free(cstates);
+			}
+			cstates = tmp;
+
 			if (!cstates)
 				continue;
 			if (is_err(cstates)) {
@@ -1190,6 +1224,19 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 		cstates->name = strdup(s_cpu->cstates->cstate[i].name);
 
 		result->cstate[i] = *cstates;
+		result->cstate[i].inter_result = 0;
+
+		/*
+		 * Free cstates if it has been allocated by inter()
+		 * Do not free things pointed to by members of cstates
+		 * even if you free cstates itself.
+		 */
+		if (cstates && cstates->inter_result) {
+			free(cstates);
+		} else {
+			fprintf(stderr, "Warning: %s aliased cstates at %p\n",
+				__func__, cstates);
+		}
 	}
 
 	return result;
@@ -1197,7 +1244,7 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 
 struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 {
-	struct cpuidle_cstate *c1, *cstates;
+	struct cpuidle_cstate *c1, *cstates, *tmp;
 	struct cpuidle_cstates *result;
 	struct cpu_core      *s_core;
 	int i;
@@ -1207,7 +1254,7 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 	if (!result)
 		return NULL;
 
-	/* hack but negligeable overhead */
+	/* hack but negligible overhead */
 	list_for_each_entry(s_core, &s_phy->core_head, list_core)
 		cstate_max = MAX(cstate_max, s_core->cstates->cstate_max);
 	result->cstate_max = cstate_max;
@@ -1217,7 +1264,14 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
 			c1 = &s_core->cstates->cstate[i];
 
-			cstates = inter(cstates, c1);
+			tmp = inter(cstates, c1);
+			if (cstates && cstates != tmp &&
+				cstates->inter_result) {
+				free(cstates->data);
+				free(cstates);
+			}
+			cstates = tmp;
+
 			if (!cstates)
 				continue;
 			if (is_err(cstates)) {
@@ -1232,6 +1286,19 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 			strdup(s_core->cstates->cstate[i].name) : NULL;
 
 		result->cstate[i] = *cstates;
+		result->cstate[i].inter_result = 0;
+
+		/*
+		 * Free cstates if it has been allocated by inter()
+		 * Do not free things pointed to by members of cstates
+		 * even if you free cstates itself.
+		 */
+		if (cstates && cstates->inter_result) {
+			free(cstates);
+		} else {
+			fprintf(stderr, "Warning: %s aliased cstates at %p\n",
+				__func__, cstates);
+		}
 	}
 
 	return result;

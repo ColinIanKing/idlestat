@@ -500,11 +500,11 @@ int release_cpu_topo_cstates(void)
 
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
 			    list_physical) {
-		free(s_phy->cstates);
+		release_cstate_info(s_phy->cstates, 1);
 		s_phy->cstates = NULL;
 		list_for_each_entry(s_core, &s_phy->core_head, list_core)
 			if (s_core->is_ht) {
-				free(s_core->cstates);
+				release_cstate_info(s_core->cstates, 1);
 				s_core->cstates = NULL;
 			}
 	}

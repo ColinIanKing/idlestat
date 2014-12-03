@@ -63,6 +63,7 @@ struct cpuidle_cstate {
 	double min_time;
 	double duration;
 	int target_residency; /* -1 if not available */
+	int inter_result; /* 1 if created by a call to inter() */
 };
 
 struct wakeup_irq {
@@ -86,6 +87,8 @@ struct cpuidle_cstates {
 	struct wakeup_irq *wakeirq;
 	enum {as_expected, too_long, too_short} actual_residency;
 };
+
+extern void release_cstate_info(struct cpuidle_cstates *cstates, int nrcpus);
 
 struct cpufreq_pstate {
 	int id;
