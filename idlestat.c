@@ -205,6 +205,9 @@ static struct cpuidle_data *intersection(struct cpuidle_data *data1,
 	double begin, end;
 	struct cpuidle_data *data;
 
+	assert(data1 != NULL);
+	assert(data2 != NULL);
+
 	begin = MAX(data1->begin, data2->begin);
 	end = MIN(data1->end, data2->end);
 
