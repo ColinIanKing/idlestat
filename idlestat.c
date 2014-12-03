@@ -676,8 +676,8 @@ static void open_current_pstate(struct cpufreq_pstates *ps, double time)
 static void open_next_pstate(struct cpufreq_pstates *ps, int s, double time)
 {
 	ps->current = s;
-	if (ps->idle) {
-		fprintf(stderr, "warning: opening P-state on idle CPU\n");
+	if (ps->idle > 0) {
+		fprintf(stderr, "Warning: opening P-state on an idle CPU\n");
 		return;
 	}
 	open_current_pstate(ps, time);
@@ -689,8 +689,8 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 	struct cpufreq_pstate *p = &(ps->pstate[c]);
 	double elapsed;
 
-	if (ps->idle) {
-		fprintf(stderr, "warning: closing P-state on idle CPU\n");
+	if (ps->idle > 0) {
+		fprintf(stderr, "Warning: closing P-state on an idle CPU\n");
 		return;
 	}
 	elapsed = (time - ps->time_enter) * USEC_PER_SEC;
