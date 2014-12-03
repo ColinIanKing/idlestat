@@ -972,6 +972,7 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 	size_t count = 0, start = 1;
 	struct cpuidle_datas *datas;
 	int ret;
+	enum formats format;
 
 	f = fopen(options->filename, "r");
 	if (!f) {
@@ -983,13 +984,13 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 	/* version line */
 	fgets(buffer, BUFSIZE, f);
 	if (strstr(buffer, "idlestat")) {
-		options->format = IDLESTAT_HEADER;
+		format = IDLESTAT_HEADER;
 		fgets(buffer, BUFSIZE, f);
 		if (sscanf(buffer, "cpus=%u", &nrcpus) != 1)
 			nrcpus = 0;
 		fgets(buffer, BUFSIZE, f);
 	} else if (strstr(buffer, "# tracer")) {
-		options->format = TRACE_CMD_HEADER;
+		format = TRACE_CMD_HEADER;
 		while(!feof(f)) {
 			if (buffer[0] != '#')
 				break;
@@ -1022,14 +1023,14 @@ struct cpuidle_datas *idlestat_load(struct program_options *options)
 	datas->nrcpus = nrcpus;
 
 	/* read c-state information */
-	if (options->format == IDLESTAT_HEADER)
+	if (format == IDLESTAT_HEADER)
 		datas->cstates = load_and_build_cstate_info(f, nrcpus);
 	else
 		datas->cstates = build_cstate_info(nrcpus);
 	if (!datas->cstates) {
 		free(datas);
 		fclose(f);
-		if (options->format == IDLESTAT_HEADER)
+		if (format == IDLESTAT_HEADER)
 			return ptrerror("load_and_build_cstate_info: out of memory");
 		else
 			return ptrerror("build_cstate_info: out of memory");
@@ -1273,7 +1274,6 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 	options->filename = NULL;
 	options->outfilename = NULL;
 	options->mode = -1;
-	options->format = -1;
 	options->report_ops = &default_report_ops;
 
 	while (1) {

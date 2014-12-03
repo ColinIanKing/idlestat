@@ -124,7 +124,6 @@ enum formats {
 
 struct program_options {
 	int mode;
-	int format;
 	int display;
 	unsigned int duration;
 	char *filename;
