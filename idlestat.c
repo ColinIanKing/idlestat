@@ -36,6 +36,7 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <assert.h>
+#include <ctype.h>
 
 #include "idlestat.h"
 #include "utils.h"
@@ -67,7 +68,11 @@ static inline int bad_filename(const char *filename)
 	for (; *c; c++) {
 		/* Check for control chars and other bad characters */
 		if (*c < 32 || *c == '<' || *c == '>' || *c == '|') {
-			fprintf(stderr, "Bad character '%c' found in filename\n", *c);
+			fprintf(stderr,
+				isprint(*c) ?
+				"Bad character '%c' found in filename\n" :
+				"Bad character 0x%02x found in filename\n",
+				*c);
 			return EINVAL;
 		}
 	}
