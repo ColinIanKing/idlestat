@@ -93,25 +93,32 @@ static inline void *ptrerror(const char *str)
 
 #define TRACE_TS_FORMAT "%*[^:]:%lf"
 
-static double get_trace_ts(void)
+static int get_trace_ts(double *ts)
 {
 	FILE *f;
-	double ts;
 
 	f = fopen(TRACE_STAT_FILE, "r");
 	if (!f)
-		return -1;
+		return error("fopen " TRACE_STAT_FILE);
 
 	while (fgets(buffer, BUFSIZE, f)) {
 		if (!strstr(buffer, "now ts"))
 			continue;
-		if (!sscanf(buffer, TRACE_TS_FORMAT, &ts))
-			ts = -1;
-		break;
+
+		fclose(f);
+
+		if (sscanf(buffer, TRACE_TS_FORMAT, ts) == 1)
+			return 0;
+
+		fprintf(stderr, "get_trace_ts: Failed to parse timestamp\n");
+		return -1;
 	}
+
 	fclose(f);
 
-	return ts;
+	fprintf(stderr, "get_trace_ts: Failed to find timestamp in %s\n",
+		TRACE_STAT_FILE);
+	return -1;
 }
 
 static int display_cstates(struct report_ops *ops, void *arg, char *cpu, void *report_data)
@@ -1607,10 +1614,10 @@ int main(int argc, char *argv[], char *const envp[])
 			return 1;
 
 		/* Get starting timestamp */
-		if (options.display & FREQUENCY_DISPLAY) {
-			start_ts = get_trace_ts();
-			initp = build_init_pstates();
-		}
+		if (get_trace_ts(&start_ts) == -1)
+			return 1;
+
+		initp = build_init_pstates();
 
 		/* Start the recording */
 		if (idlestat_trace_enable(true))
@@ -1635,8 +1642,8 @@ int main(int argc, char *argv[], char *const envp[])
 			return 1;
 
 		/* Get ending timestamp */
-		if (options.display & FREQUENCY_DISPLAY)
-			end_ts = get_trace_ts();
+		if (get_trace_ts(&end_ts) == -1)
+			return 1;
 
 		/* At this point we should have some spurious wake up
 		 * at the beginning of the traces and at the end (wake
