@@ -202,7 +202,7 @@ static struct cpuidle_data *intersection(struct cpuidle_data *data1,
 	if (begin >= end)
 		return NULL;
 
-	data = malloc(sizeof(*data));
+	data = calloc(sizeof(*data), 1);
 	if (!data)
 		return NULL;
 
@@ -271,13 +271,14 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 			}
 			data = tmp;
 
-			result->data = data;
-			result->data[result->nrdata - 1] = *interval;
+			/* Newly allocated area will be 100% overwritten */
+			data[result->nrdata - 1] = *interval;
 
 			free(interval);
 		}
 	}
 
+	result->data = data;
 	return result;
 }
 
@@ -381,8 +382,7 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 
 	cstates = calloc(nrcpus, sizeof(*cstates));
 	if (!cstates)
-		return ptrerror("calloc in build_cstate_info");
-	memset(cstates, 0, sizeof(*cstates) * nrcpus);
+		return ptrerror(__func__);
 
 	/* initialize cstate_max for each cpu */
 	for (cpu = 0; cpu < nrcpus; cpu++) {
@@ -428,7 +428,7 @@ static struct init_pstates *build_init_pstates(void)
 	if (nrcpus < 0)
 		return NULL;
 
-	initp = malloc(sizeof(*initp));
+	initp = calloc(sizeof(*initp), 1);
 	if (!initp)
 		return NULL;
 
@@ -504,6 +504,7 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 
 	next = i;
 	memmove(pstate + next + 1, pstate + next, sizeof(*pstate) * (nrfreq - next));
+	memset(pstate + next, 0, sizeof(*pstate));
 	for (i = nrfreq; i > next; i--)
 		pstate[i].id = i;
 	if (pstates->current >= next)
@@ -536,9 +537,7 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
 
 	cstates = calloc(nrcpus, sizeof(*cstates));
 	if (!cstates)
-		return ptrerror("calloc in load_and_build_cstate_info");
-	memset(cstates, 0, sizeof(*cstates) * nrcpus);
-
+		return ptrerror(__func__);
 
 	for (cpu = 0; cpu < nrcpus; cpu++) {
 		int i, read_cpu;
@@ -554,13 +553,17 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
 				"%s: Error reading trace file\n"
 				"Expected: cpuid %d:\n"
 				"Read: %s",
-				__FUNCTION__, cpu, buffer);
+				__func__, cpu, buffer);
 			return ptrerror(NULL);
 		}
 
 		for (i = 0; i < MAXCSTATE; i++) {
-			char *name = malloc(128);
 			int residency;
+			char *name = malloc(128);
+			if (!name) {
+				release_cstate_info(cstates, cpu);
+				return ptrerror(__func__);
+			}
 
 			fgets(buffer, BUFSIZE, f);
 			sscanf(buffer, "\t%s\n", name);
@@ -629,7 +632,6 @@ static struct cpufreq_pstates *build_pstate_info(int nrcpus)
 	pstates = calloc(nrcpus, sizeof(*pstates));
 	if (!pstates)
 		return NULL;
-	memset(pstates, 0, sizeof(*pstates) * nrcpus);
 
 	for (cpu = 0; cpu < nrcpus; cpu++) {
 		pstates[cpu].pstate = NULL;
@@ -773,7 +775,8 @@ static int cstate_begin(double time, int state, struct cpuidle_cstates *cstates)
 
 	data = realloc(data, sizeof(*data) * (nrdata + 1));
 	if (!data)
-		return error("realloc data");
+		return error(__func__);
+	memset(data + nrdata, 0, sizeof(*data));
 
 	data[nrdata].begin = time;
 
@@ -889,6 +892,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 				sizeof(*irqinfo) * (wakeinfo->nrdata + 1));
 		if (!irqinfo)
 			return error("realloc irqinfo");
+		memset(irqinfo + wakeinfo->nrdata, 0, sizeof(*irqinfo));
 
 		wakeinfo->irqinfo = irqinfo;
 
@@ -1017,10 +1021,10 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 		return ptrerror("read error for 'cpus=' in trace file");
 	}
 
-	datas = malloc(sizeof(*datas));
+	datas = calloc(sizeof(*datas), 1);
 	if (!datas) {
 		fclose(f);
-		return ptrerror("malloc datas");
+		return ptrerror(__func__);
 	}
 
 	/* read topology information */
@@ -1099,7 +1103,7 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 	int i, j;
 	int cstate_max = -1;
 
-	result = malloc(sizeof(*result));
+	result = calloc(sizeof(*result), 1);
 	if (!result)
 		return NULL;
 
