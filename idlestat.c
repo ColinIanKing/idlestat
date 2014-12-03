@@ -382,7 +382,7 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 
 	cstates = calloc(nrcpus, sizeof(*cstates));
 	if (!cstates)
-		return NULL;
+		return ptrerror("calloc in build_cstate_info");
 	memset(cstates, 0, sizeof(*cstates) * nrcpus);
 
 	/* initialize cstate_max for each cpu */
@@ -535,7 +535,7 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
 
 	cstates = calloc(nrcpus, sizeof(*cstates));
 	if (!cstates)
-		return NULL;
+		return ptrerror("calloc in load_and_build_cstate_info");
 	memset(cstates, 0, sizeof(*cstates) * nrcpus);
 
 
@@ -546,10 +546,14 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
 		cstates[cpu].cstate_max = -1;
 		cstates[cpu].current_cstate = -1;
 
-		sscanf(buffer, "cpuid %d:\n", &read_cpu);
-
-		if (read_cpu != cpu) {
+		if (sscanf(buffer, "cpuid %d:\n", &read_cpu) != 1 ||
+				read_cpu != cpu) {
 			release_cstate_info(cstates, cpu);
+			fprintf(stderr,
+				"%s: Error reading trace file\n"
+				"Expected: cpuid %d:\n"
+				"Read: %s",
+				__FUNCTION__, cpu, buffer);
 			return NULL;
 		}
 
@@ -1030,10 +1034,7 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 	if (!datas->cstates) {
 		free(datas);
 		fclose(f);
-		if (format == IDLESTAT_HEADER)
-			return ptrerror("load_and_build_cstate_info: out of memory");
-		else
-			return ptrerror("build_cstate_info: out of memory");
+		return NULL;
 	}
 
 	datas->pstates = build_pstate_info(nrcpus);
