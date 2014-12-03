@@ -204,7 +204,7 @@ static struct cpuidle_data *intersection(struct cpuidle_data *data1,
 
 	data = calloc(sizeof(*data), 1);
 	if (!data)
-		return NULL;
+		return ptrerror(__func__);
 
 	data->begin = begin;
 	data->end = end;
@@ -230,7 +230,7 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 
 	result = calloc(sizeof(*result), 1);
 	if (!result)
-		return NULL;
+		return ptrerror(__func__);
 
 	for (i = 0, index = 0; i < c1->nrdata; i++) {
 
@@ -248,6 +248,11 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 			interval = intersection(&c1->data[i], &c2->data[j]);
 			if (!interval)
 				continue;
+			if (is_err(interval)) {
+				free(data);
+				free(result);
+				return ptrerror(NULL);
+			}
 
 			result->min_time = MIN(result->min_time,
 					       interval->duration);
@@ -267,7 +272,7 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 			if (!tmp) {
 				free(data);
 				free(result);
-				return NULL;
+				return ptrerror(__func__);
 			}
 			data = tmp;
 
@@ -1129,6 +1134,11 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 			cstates = inter(cstates, c1);
 			if (!cstates)
 				continue;
+			if (is_err(cstates)) {
+				release_cstate_info(result->cstates, 1);
+				free(result);
+				return ptrerror(NULL);
+			}
 		}
 
 		/* copy state names from the first cpu */
@@ -1169,6 +1179,10 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 			cstates = inter(cstates, c1);
 			if (!cstates)
 				continue;
+			if (is_err(cstates)) {
+				release_cstate_info(result, 1);
+				return ptrerror(NULL);
+			}
 		}
 		/* copy state name from first cpu */
 		s_cpu = list_first_entry(&s_core->cpu_head, struct cpu_cpu,
@@ -1206,6 +1220,10 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 			cstates = inter(cstates, c1);
 			if (!cstates)
 				continue;
+			if (is_err(cstates)) {
+				release_cstate_info(result, 1);
+				return ptrerror(NULL);
+			}
 		}
 		/* copy state name from first core (if any) */
 		s_core = list_first_entry(&s_phy->core_head, struct cpu_core,
