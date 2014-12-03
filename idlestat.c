@@ -263,8 +263,7 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 
 			result->nrdata++;
 
-			tmp = realloc(data, sizeof(*data) *
-				       (result->nrdata + 1));
+			tmp = realloc(data, sizeof(*data) * result->nrdata);
 			if (!tmp) {
 				free(data);
 				free(result);
