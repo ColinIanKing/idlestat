@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <errno.h>
 #include <assert.h>
 
@@ -34,8 +35,11 @@ static int make_energy_model_template(struct program_options *options)
 	init_cpu_topo_info();
 	read_sysfs_cpu_topo();
 	datas = idlestat_load(options->filename);
-	if (!datas)
+	if (!datas) {
+		fclose(f);
+		unlink(options->energy_model_filename);
 		return -1;
+	}
 	establish_idledata_to_topo(datas);
 
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
@@ -75,6 +79,8 @@ static int make_energy_model_template(struct program_options *options)
 		fprintf(f, "\nwakeup\t\t?\t?\n");
 		cluster_number++;
 	}
+
+	fclose(f);
 	return 0;
 }
 
