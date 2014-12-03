@@ -118,6 +118,7 @@ int parse_energy_model(struct program_options *options)
 			if (clusters_in_energy_file) {
 				fprintf(stderr, "%s: number of clusters already specified in %s\n",
 					__func__, path);
+				fclose(f);
 				return -1;
 			}
 			sscanf(buffer, "%*s %d", &clusters_in_energy_file);
@@ -132,12 +133,14 @@ int parse_energy_model(struct program_options *options)
 			if (current_cluster >= clusters_in_energy_file) {
 				fprintf(stderr, "%s: cluster%c out of range in %s\n",
 					__func__, tmp, path);
+				fclose(f);
 				return -1;
 			}
 			clustp = cluster_energy_table + current_cluster;
 			if (clustp->number_cap_states) {
 				fprintf(stderr, "%s: number of cap states for cluster%c already specified in %s\n",
 					__func__, tmp, path);
+				fclose(f);
 				return -1;
 			}
 			clustp->number_cap_states = number_cap_states;
@@ -153,11 +156,13 @@ int parse_energy_model(struct program_options *options)
 			if (current_cluster == -1) {
 				fprintf(stderr, "%s: unknown cluster (cap states) in %s\n",
 					__func__, path);
+				fclose(f);
 				return -1;
 			}
 			if (clustp->state < parsed_cluster_info) {
 				fprintf(stderr, "%s: number of cap states for cluster%c not specified in %s\n",
 					__func__, current_cluster, path);
+				fclose(f);
 				return -1;
 			}
 			current_pstate = 0;
@@ -168,11 +173,13 @@ int parse_energy_model(struct program_options *options)
 			if (current_cluster == -1) {
 				fprintf(stderr, "%s: unknown cluster (c states) in %s\n",
 					__func__, path);
+				fclose(f);
 				return -1;
 			}
 			if (clustp->state < parsed_cluster_info) {
 				fprintf(stderr, "%s: number of c states for cluster%c not specified in %s\n",
 					__func__, current_cluster, path);
+				fclose(f);
 				return -1;
 			}
 			current_cstate = 0;
@@ -185,6 +192,7 @@ int parse_energy_model(struct program_options *options)
 			if (current_cluster == -1) {
 				fprintf(stderr, "%s: unknown cluster (wakeup) in %s\n",
 					__func__, path);
+				fclose(f);
 				return -1;
 			}
 			sscanf(buffer, "%*s %d %d", &clust_w, &core_w);
@@ -195,6 +203,7 @@ int parse_energy_model(struct program_options *options)
 		if (!clustp) {
 			fprintf(stderr, "%s: unknown cluster in %s\n",
 				__func__, path);
+			fclose(f);
 			return -1;
 			}
 		if (clustp->state == parsing_cap_states) {
@@ -204,12 +213,14 @@ int parse_energy_model(struct program_options *options)
 			if (sscanf(buffer, "%d %d %d", &speed, &clust_p, &core_p) != 3) {
 				fprintf(stderr, "%s: expected P state (speed cluster core) for cluster%c in %s\n",
 					__func__, current_cluster, path);
+				fclose(f);
 				return -1;
 			}
 
 			if (current_pstate >= clustp->number_cap_states) {
 				fprintf(stderr, "%s: too many cap states specified for cluster%c in %s\n",
 					__func__, current_cluster, path);
+				fclose(f);
 				return -1;
 			}
 			pp = &clustp->p_energy[current_pstate++];
@@ -225,12 +236,14 @@ int parse_energy_model(struct program_options *options)
 			if (sscanf(buffer, "%s %d %d", name, &clust_p, &core_p) != 3) {
 				fprintf(stderr, "%s: expected C state (name cluster core) for cluster%c in %s\n",
 					__func__, current_cluster, path);
+				fclose(f);
 				return -1;
 			}
 
 			if (current_cstate >= clustp->number_c_states) {
 				fprintf(stderr, "%s: too many C states specified for cluster%c in %s\n",
 					__func__, current_cluster, path);
+				fclose(f);
 				return -1;
 			}
 			cp = &clustp->c_energy[current_cstate++];
@@ -241,7 +254,9 @@ int parse_energy_model(struct program_options *options)
 		}
 	}
 
-	printf("parsed energy model file\n");
+	fclose(f);
+	printf("Parsed energy model file successfully\n");
+
 	return 0;
 }
 
