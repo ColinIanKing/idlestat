@@ -57,6 +57,7 @@ int write_int(const char *path, int val)
 int read_int(const char *path, int *val)
 {
 	FILE *f;
+	int ret;
 
 	f = fopen(path, "r");
 
@@ -65,9 +66,14 @@ int read_int(const char *path, int *val)
 		return -1;
 	}
 
-	fscanf(f, "%d", val);
-
+	ret = fscanf(f, "%d", val);
 	fclose(f);
+
+	if (ret != 1) {
+		fprintf(stderr,
+			"Warning: failed to parse integer from %s\n", path);
+		return -1;
+	}
 
 	return 0;
 }
@@ -113,7 +119,7 @@ int file_read_value(const char *path, const char *name,
 		goto out_free;
 	}
 
-	ret = fscanf(file, format, value) == EOF ? -1 : 0;
+	ret = fscanf(file, format, value) != 1 ? -1 : 0;
 
 	fclose(file);
 out_free:
@@ -191,7 +197,8 @@ int check_window_size(void)
 		return 0;
 
 	/* Get terminal window size */
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize) == -1)
+		return -1;
 
 	if (winsize.ws_col >= 80)
 		return 0;
