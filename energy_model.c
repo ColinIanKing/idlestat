@@ -33,7 +33,6 @@ static int make_energy_model_template(struct program_options *options)
 	fprintf(f, "# Replace ? with correct values\n");
 
 	init_cpu_topo_info();
-	read_sysfs_cpu_topo();
 	datas = idlestat_load(options->filename);
 	if (!datas) {
 		fclose(f);
@@ -103,6 +102,16 @@ int parse_energy_model(struct program_options *options)
 	f = fopen(path, "r");
 	if (!f) {
 		if (errno == ENOENT) {
+			if (options->mode == TRACE) {
+				fprintf(stderr,
+					"Energy model file %s does not "
+					"exist.\nIdlestat was started in "
+					"trace mode. If you wish to "
+					"generate energy model\ntemplate, "
+					"run idlestat in import mode.\n",
+					path);
+				return -1;
+			}
 			ret = make_energy_model_template(options);
 			exit(ret);
 		}
