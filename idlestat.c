@@ -45,6 +45,7 @@
 #include "topology.h"
 #include "energy_model.h"
 #include "report_ops.h"
+#include "trace_ops.h"
 
 #define IDLESTAT_VERSION "0.4-rc1"
 #define USEC_PER_SEC 1000000
@@ -381,11 +382,12 @@ int cpuidle_get_target_residency(int cpu, int state)
 /**
  * build_cstate_info - parse cpuidle sysfs entries and build per-CPU
  * structs to maintain statistics of C-state transitions
+ *
  * @nrcpus: number of CPUs
  *
- * Return: per-CPU array of structs (success) or ptrerror() (error)
+ * @return: per-CPU array of structs (success) or ptrerror() (error)
  */
-static struct cpuidle_cstates *build_cstate_info(int nrcpus)
+struct cpuidle_cstates *build_cstate_info(int nrcpus)
 {
 	int cpu;
 	struct cpuidle_cstates *cstates;
@@ -534,78 +536,6 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 }
 
 /**
- * load_and_build_cstate_info - load c-state info written to idlestat trace file.
- * @f: the file handle of the idlestat trace file
- * @nrcpus: number of CPUs
- *
- * Return: per-CPU array of structs (success) or ptrerror() (error)
- */
-static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, int nrcpus)
-{
-	int cpu;
-	struct cpuidle_cstates *cstates;
-
-	assert(nrcpus > 0);
-
-	cstates = calloc(nrcpus, sizeof(*cstates));
-	if (!cstates)
-		return ptrerror(__func__);
-
-	for (cpu = 0; cpu < nrcpus; cpu++) {
-		int i, read_cpu;
-		struct cpuidle_cstate *c;
-
-		cstates[cpu].cstate_max = -1;
-		cstates[cpu].current_cstate = -1;
-
-		if (sscanf(buffer, "cpuid %d:\n", &read_cpu) != 1 ||
-				read_cpu != cpu) {
-			release_cstate_info(cstates, cpu);
-			fprintf(stderr,
-				"%s: Error reading trace file\n"
-				"Expected: cpuid %d:\n"
-				"Read: %s",
-				__func__, cpu, buffer);
-			return ptrerror(NULL);
-		}
-
-		for (i = 0; i < MAXCSTATE; i++) {
-			int residency;
-			char *name = malloc(128);
-			if (!name) {
-				release_cstate_info(cstates, cpu);
-				return ptrerror(__func__);
-			}
-
-			fgets(buffer, BUFSIZE, f);
-			sscanf(buffer, "\t%s\n", name);
-			fgets(buffer, BUFSIZE, f);
-			sscanf(buffer, "\t%d\n", &residency);
-
-			c = &(cstates[cpu].cstate[i]);
-			if (!strcmp(name, "(null)")) {
-				free(name);
-				c->name = NULL;
-			} else {
-				c->name = name;
-			}
-			c->data = NULL;
-			c->nrdata = 0;
-			c->early_wakings = 0;
-			c->late_wakings = 0;
-			c->avg_time = 0.;
-			c->max_time = 0.;
-			c->min_time = DBL_MAX;
-			c->duration = 0.;
-			c->target_residency = residency;
-		}
-		fgets(buffer, BUFSIZE, f);
-	}
-
-	return cstates;
-}
-
-/**
  * release_pstate_info - free all P-state related structs
  * @pstates: per-cpu array of P-state statistics structs
  * @nrcpus: number of CPUs
@@ -632,11 +562,12 @@ static void release_pstate_info(struct cpufreq_pstates *pstates, int nrcpus)
 /**
  * build_pstate_info - allocate and initialize per-CPU structs to maintain
  * statistics of P-state transitions
+ *
  * @nrcpus: number of CPUs
  *
- * Return: per-CPU array of structs (success) or NULL (error)
+ * @return: per-CPU array of structs (success) or NULL (error)
  */
-static struct cpufreq_pstates *build_pstate_info(int nrcpus)
+struct cpufreq_pstates *build_pstate_info(int nrcpus)
 {
 	int cpu;
 	struct cpufreq_pstates *pstates;
@@ -720,7 +651,7 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 	p->count++;
 }
 
-static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
+void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 			      unsigned int freq, double time)
 {
 	struct cpufreq_pstates *ps;
@@ -847,8 +778,8 @@ static int cstate_end(double time, struct cpuidle_cstates *cstates)
 	return 0;
 }
 
-static int store_data(double time, int state, int cpu,
-		      struct cpuidle_datas *datas, int count)
+int store_data(double time, int state, int cpu,
+		struct cpuidle_datas *datas, int count)
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
 	struct cpufreq_pstate *pstate = datas->pstates[cpu].pstate;
@@ -954,7 +885,7 @@ void output_cstate_info(FILE *f, int nrcpus) {
 #define TRACECMD_REPORT_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
 
-static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
+int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 {
 	int cpu, irqid;
 	char irqname[NAMELEN+1];
@@ -988,129 +919,26 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 
 struct cpuidle_datas *idlestat_load(const char *filename)
 {
-	FILE *f;
-	unsigned int state = 0, freq = 0, cpu = 0, nrcpus = 0;
-	double time, begin = 0, end = 0;
-	size_t count = 0, start = 1;
-	struct cpuidle_datas *datas;
+	const struct trace_ops **ops_it;
 	int ret;
-	enum formats format;
 
-	f = fopen(filename, "r");
-	if (!f) {
-		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__,
-					filename);
-		return ptrerror(NULL);
-	}
+	for (ops_it = (&trace_ops_head)+1 ; *ops_it ; ++ops_it) {
+		assert((*ops_it)->name);
+		assert((*ops_it)->check_magic);
+		assert((*ops_it)->load);
+		ret = (*ops_it)->check_magic(filename);
 
-	/* version line */
-	fgets(buffer, BUFSIZE, f);
-	if (strstr(buffer, "idlestat")) {
-		format = IDLESTAT_HEADER;
-		fgets(buffer, BUFSIZE, f);
-		if (sscanf(buffer, "cpus=%u", &nrcpus) != 1)
-			nrcpus = 0;
-		fgets(buffer, BUFSIZE, f);
-	} else if (strstr(buffer, "# tracer")) {
-		format = TRACE_CMD_HEADER;
-		while(!feof(f)) {
-			if (buffer[0] != '#')
-				break;
-			if (strstr(buffer, "#P:") &&
-			    sscanf(buffer, "#%*[^#]#P:%u", &nrcpus) != 1)
-				nrcpus = 0;
-			fgets(buffer, BUFSIZE, f);
+		if (ret == -1)
+			return ptrerror(NULL);
+
+		/* File format supported by these ops? */
+		if (ret > 0) {
+			return (*ops_it)->load(filename);
 		}
-	} else {
-		fprintf(stderr, "%s: unrecognized import format in '%s'\n",
-				__func__, filename);
-		fclose(f);
-		return ptrerror(NULL);
 	}
 
-	if (!nrcpus) {
-		fclose(f);
-		return ptrerror("read error for 'cpus=' in trace file");
-	}
-
-	datas = calloc(sizeof(*datas), 1);
-	if (!datas) {
-		fclose(f);
-		return ptrerror(__func__);
-	}
-
-	/* read topology information */
-	datas->topo = read_cpu_topo_info(f, buffer);
-	if (is_err(datas->topo)) {
-		fclose(f);
-		free(datas);
-		return ptrerror(NULL);
-	}
-
-	datas->nrcpus = nrcpus;
-
-	/* read c-state information */
-	if (format == IDLESTAT_HEADER)
-		datas->cstates = load_and_build_cstate_info(f, nrcpus);
-	else
-		datas->cstates = build_cstate_info(nrcpus);
-	if (is_err(datas->cstates)) {
-		free(datas);
-		fclose(f);
-		return ptrerror(NULL);
-	}
-
-	datas->pstates = build_pstate_info(nrcpus);
-	if (!datas->pstates) {
-		free(datas->cstates);
-		free(datas);
-		fclose(f);
-		return ptrerror("build_pstate_info: out of memory");
-	}
-
-	do {
-		if (strstr(buffer, "cpu_idle")) {
-			if (sscanf(buffer, TRACE_FORMAT, &time, &state, &cpu)
-			    != 3) {
-				fprintf(stderr, "warning: Unrecognized cpuidle "
-					"record. The result of analysis might "
-					"be wrong.\n");
-				continue;
-			}
-
-			if (start) {
-				begin = time;
-				start = 0;
-			}
-			end = time;
-
-			store_data(time, state, cpu, datas, count);
-			count++;
-			continue;
-		} else if (strstr(buffer, "cpu_frequency")) {
-			if (sscanf(buffer, TRACE_FORMAT, &time, &freq, &cpu)
-			    != 3) {
-				fprintf(stderr, "warning: Unrecognized cpufreq "
-					"record. The result of analysis might "
-					"be wrong.\n");
-				continue;
-			}
-			cpu_change_pstate(datas, cpu, freq, time);
-			count++;
-			continue;
-		}
-
-		ret = get_wakeup_irq(datas, buffer, count);
-		count += (0 == ret) ? 1 : 0;
-
-	} while (fgets(buffer, BUFSIZE, f));
-
-	fclose(f);
-
-	fprintf(stderr, "Log is %lf secs long with %zd events\n",
-		end - begin, count);
-
-	return datas;
+	fprintf(stderr, "Trace file format not recognized\n");
+	return ptrerror(NULL);
 }
 
 struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)

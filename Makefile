@@ -25,7 +25,11 @@ CFLAGS?=-g -Wall
 CC=gcc
 
 OBJS =	idlestat.o topology.o trace.o utils.o energy_model.o \
-	default_report.o csv_report.o
+	default_report.o csv_report.o \
+	trace_ops_head.o \
+	tracefile_idlestat.o \
+	tracefile_ftrace.o \
+	trace_ops_tail.o
 
 default: idlestat
 
