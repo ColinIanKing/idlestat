@@ -28,7 +28,10 @@
 #define __TOPOLOGY_H
 
 #include "list.h"
-#include "idlestat.h"
+#include <stdbool.h>
+
+struct cpuidle_datas;
+struct report_ops;
 
 struct cpu_cpu {
 	struct list_head list_cpu;
