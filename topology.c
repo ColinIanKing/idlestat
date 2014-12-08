@@ -22,6 +22,7 @@
  * Contributors:
  *     Daniel Lezcano <daniel.lezcano@linaro.org>
  *     Zoran Markovic <zoran.markovic@linaro.org>
+ *     Tuukka Tikkanen <tuukka.tikkanen@linaro.org>
  *
  */
 #define  _GNU_SOURCE
@@ -34,13 +35,12 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <assert.h>
 
 #include "list.h"
 #include "utils.h"
 #include "topology.h"
 #include "idlestat.h"
-
-struct cpu_topology g_cpu_topo_list;
 
 struct topology_info {
 	int physical_id;
@@ -260,24 +260,30 @@ static int cpu_filter_cb(const char *name)
  * @filter : a callback to filter out the directories
  * Returns 0 on success, -1 otherwise
  */
-static int topo_folder_scan(char *path, folder_filter_t filter)
+static struct cpu_topology *topo_folder_scan(char *path, folder_filter_t filter)
 {
 	DIR *dir, *dir_topology;
 	char *basedir, *newpath;
 	struct dirent dirent, *direntp;
 	struct stat s;
-	int ret = 0;
+	int ret;
+	struct cpu_topology *result = NULL;
 
 	dir = opendir(path);
-	if (!dir) {
-		printf("error: unable to open directory %s\n", path);
-		return -1;
-	}
+	if (!dir)
+		return ptrerror(path);
 
 	ret = asprintf(&basedir, "%s", path);
 	if (ret < 0) {
 		closedir(dir);
-		return -1;
+		return ptrerror(__func__);
+	}
+
+	result = alloc_cpu_topo_info();
+	if (is_err(result)) {
+		free(basedir);
+		closedir(dir);
+		return result;
 	}
 
 	while (!readdir_r(dir, &dirent, &direntp)) {
@@ -319,41 +325,57 @@ static int topo_folder_scan(char *path, folder_filter_t filter)
 					"from %s\n", newpath);
 				goto out_free_newpath;
 			}
-			add_topo_info(&g_cpu_topo_list, &cpu_info);
+			add_topo_info(result, &cpu_info);
 		}
 
-out_free_newpath:
 		free(newpath);
 	}
 
+	free(basedir);
+	closedir(dir);
+
+	return result;
+
+out_free_newpath:
+	free(newpath);
 out_free_basedir:
 	free(basedir);
-
 	closedir(dir);
+	release_cpu_topo_info(result);
+
+	return ptrerror(__func__);
+}
+
+
+struct cpu_topology *alloc_cpu_topo_info(void)
+{
+	struct cpu_topology *ret;
+
+	ret = calloc(sizeof(*ret), 1);
+	if (ret == NULL)
+		return ptrerror(__func__);
+	INIT_LIST_HEAD(&ret->physical_head);
+	ret->physical_num = 0;
 
 	return ret;
 }
 
-
-int init_cpu_topo_info(void)
-{
-	INIT_LIST_HEAD(&g_cpu_topo_list.physical_head);
-	g_cpu_topo_list.physical_num = 0;
-
-	return 0;
-}
-
-int read_sysfs_cpu_topo(void)
+struct cpu_topology *read_sysfs_cpu_topo(void)
 {
 	return topo_folder_scan("/sys/devices/system/cpu", cpu_filter_cb);
 }
 
-int read_cpu_topo_info(FILE *f, char *buf)
+struct cpu_topology *read_cpu_topo_info(FILE *f, char *buf)
 {
 	int ret = 0;
 	struct topology_info cpu_info;
 	bool is_ht = false;
 	char pid;
+	struct cpu_topology *result = NULL;
+
+	result = alloc_cpu_topo_info();
+	if (is_err(result))
+		return result;
 
 	do {
 		ret = sscanf(buf, "cluster%c", &pid);
@@ -389,29 +411,33 @@ int read_cpu_topo_info(FILE *f, char *buf)
 				if (!ret)
 					break;
 
-				add_topo_info(&g_cpu_topo_list, &cpu_info);
+				add_topo_info(result, &cpu_info);
 
 				fgets(buf, BUFSIZE, f);
 			} while (1);
 		} while (1);
 	} while (1);
 
-	/* output_topo_info(&g_cpu_topo_list); */
+	/* output_topo_info(result); */
+
+	return result;
+}
+
+int release_cpu_topo_info(struct cpu_topology *topo)
+{
+	if (topo == NULL)
+		return 0;
+
+	/* Free alloced memory */
+	free_cpu_topology(&topo->physical_head);
+	free(topo);
 
 	return 0;
 }
 
-int release_cpu_topo_info(void)
+int output_cpu_topo_info(struct cpu_topology *topo, FILE *f)
 {
-	/* free alloced memory */
-	free_cpu_topology(&g_cpu_topo_list.physical_head);
-
-	return 0;
-}
-
-int output_cpu_topo_info(FILE *f)
-{
-	outfile_topo_info(f, &g_cpu_topo_list);
+	outfile_topo_info(f, topo);
 
 	return 0;
 }
@@ -423,9 +449,14 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	struct cpu_cpu      *s_cpu;
 	int    i;
 	int    has_topo = 0;
+	struct cpu_topology *topo;
+
+	assert(datas != NULL);
+	topo = datas->topo;
+	assert(topo != NULL);
 
 	for (i = 0; i < datas->nrcpus; i++) {
-		s_cpu = find_cpu_point(&g_cpu_topo_list, i);
+		s_cpu = find_cpu_point(topo, i);
 		if (s_cpu) {
 			s_cpu->cstates = &datas->cstates[i];
 			s_cpu->pstates = &datas->pstates[i];
@@ -436,7 +467,7 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	if (!has_topo)
 		return -1;
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+	list_for_each_entry(s_phy, &topo->physical_head,
 			    list_physical) {
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
 			s_core->cstates = core_cluster_data(s_core);
@@ -447,7 +478,7 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 		}
 	}
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+	list_for_each_entry(s_phy, &topo->physical_head,
 			    list_physical) {
 		s_phy->cstates = physical_cluster_data(s_phy);
 		if (is_err(s_phy->cstates)) {
@@ -459,14 +490,14 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	return 0;
 }
 
-int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, char *, void *), int cstate)
+int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, char *, void *), struct cpu_topology *topo, int cstate)
 {
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
 	struct cpu_cpu      *s_cpu;
 	char tmp[30];
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+	list_for_each_entry(s_phy, &topo->physical_head,
 			    list_physical) {
 
 		sprintf(tmp, "cluster%c", s_phy->physical_id + 'A');
@@ -493,12 +524,12 @@ int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(st
 	return 0;
 }
 
-int release_cpu_topo_cstates(void)
+int release_cpu_topo_cstates(struct cpu_topology *topo)
 {
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+	list_for_each_entry(s_phy, &topo->physical_head,
 			    list_physical) {
 		release_cstate_info(s_phy->cstates, 1);
 		s_phy->cstates = NULL;

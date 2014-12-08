@@ -24,6 +24,7 @@ static int make_energy_model_template(struct program_options *options)
 	struct cpu_cpu      *s_cpu;
 	unsigned int cluster_count = 0;
 	unsigned int cluster_number = 0;
+	struct cpu_topology *cpu_topo = NULL;
 
 	f = fopen(options->energy_model_filename, "w+");
 	if (!f)
@@ -32,23 +33,21 @@ static int make_energy_model_template(struct program_options *options)
 	fprintf(f, "# Lines starting with # or which are blank are ignored\n");
 	fprintf(f, "# Replace ? with correct values\n");
 
-	init_cpu_topo_info();
 	datas = idlestat_load(options->filename);
 	if (!datas) {
 		fclose(f);
 		unlink(options->energy_model_filename);
 		return -1;
 	}
+	cpu_topo = datas->topo;
 	establish_idledata_to_topo(datas);
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
-			    list_physical) {
+	list_for_each_entry(s_phy, &cpu_topo->physical_head, list_physical)
 		cluster_count++;
-	}
+
 	fprintf(f, "clusters %d\n", cluster_count);
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
-			    list_physical) {
+	list_for_each_entry(s_phy, &cpu_topo->physical_head, list_physical) {
 		unsigned int num_cap_states = 0;
 		unsigned int num_c_states = 0;
 		unsigned int i;
@@ -80,6 +79,10 @@ static int make_energy_model_template(struct program_options *options)
 	}
 
 	fclose(f);
+
+	release_cpu_topo_cstates(cpu_topo);
+	release_cpu_topo_info(cpu_topo);
+
 	return 0;
 }
 
@@ -299,7 +302,7 @@ static struct pstate_energy_info *find_pstate_energy_info(const unsigned int clu
 
 #define US_TO_SEC(US) (US / 1e6)
 
-void calculate_energy_consumption(struct program_options *options)
+void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_options *options)
 {
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
@@ -325,7 +328,7 @@ void calculate_energy_consumption(struct program_options *options)
 
 	/* Contributions are computed per cluster */
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+	list_for_each_entry(s_phy, &cpu_topo->physical_head,
 			    list_physical) {
 		current_cluster = s_phy->physical_id;
 		clustp = cluster_energy_table + current_cluster;

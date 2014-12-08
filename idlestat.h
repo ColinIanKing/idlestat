@@ -109,9 +109,12 @@ struct cpufreq_pstates {
 	int max;
 };
 
+struct cpu_topology;
+
 struct cpuidle_datas {
 	struct cpuidle_cstates *cstates;
 	struct cpufreq_pstates *pstates;
+	struct cpu_topology *topo;
 	int nrcpus;
 };
 

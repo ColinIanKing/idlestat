@@ -1040,7 +1040,12 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 	}
 
 	/* read topology information */
-	read_cpu_topo_info(f, buffer);
+	datas->topo = read_cpu_topo_info(f, buffer);
+	if (is_err(datas->topo)) {
+		fclose(f);
+		free(datas);
+		return ptrerror(NULL);
+	}
 
 	datas->nrcpus = nrcpus;
 
@@ -1489,7 +1494,8 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 }
 
 static int idlestat_store(const char *path, double start_ts, double end_ts,
-				struct init_pstates *initp)
+				struct init_pstates *initp,
+				struct cpu_topology *cpu_topo)
 {
 	FILE *f;
 	int ret;
@@ -1513,7 +1519,7 @@ static int idlestat_store(const char *path, double start_ts, double end_ts,
 	fprintf(f, "cpus=%d\n", ret);
 
 	/* output topology information */
-	output_cpu_topo_info(f);
+	output_cpu_topo_info(cpu_topo, f);
 
 	/* output c-states information */
 	output_cstate_info(f, ret);
@@ -1643,6 +1649,7 @@ int main(int argc, char *argv[], char *const envp[])
 	double start_ts = 0, end_ts = 0;
 	struct init_pstates *initp = NULL;
 	struct report_ops *output_handler = NULL;
+	struct cpu_topology *cpu_topo = NULL;
 
 	args = getoptions(argc, argv, &options);
 	if (args <= 0)
@@ -1666,14 +1673,12 @@ int main(int argc, char *argv[], char *const envp[])
 		return 1;
 	}
 
-	/* init cpu topoinfo */
-	init_cpu_topo_info();
-
 	/* Acquisition time specified means we will get the traces */
 	if ((options.mode == TRACE) || args < argc) {
 
 		/* Read cpu topology info from sysfs */
-		if (read_sysfs_cpu_topo()) {
+		cpu_topo = read_sysfs_cpu_topo();
+		if (is_err(cpu_topo)) {
 			fprintf(stderr, "Failed to read CPU topology info from"
 				" sysfs.\n");
 			return 1;
@@ -1734,8 +1739,14 @@ int main(int argc, char *argv[], char *const envp[])
 		 * up all cpus and timer expiration for the timer
 		 * acquisition). We assume these will be lost in the number
 		 * of other traces and could be negligible. */
-		if (idlestat_store(options.filename, start_ts, end_ts, initp))
+		if (idlestat_store(options.filename, start_ts, end_ts,
+			initp, cpu_topo))
 			return 1;
+
+		/* Discard topology, will be reloaded during trace load */
+		release_cpu_topo_cstates(cpu_topo);
+		release_cpu_topo_info(cpu_topo);
+		cpu_topo = NULL;
 	}
 
 	/* Load the idle states information */
@@ -1743,6 +1754,8 @@ int main(int argc, char *argv[], char *const envp[])
 
 	if (is_err(datas))
 		return 1;
+
+	cpu_topo = datas->topo;
 
 	/* Compute cluster idle intersection between cpus belonging to
 	 * the same cluster
@@ -1753,31 +1766,31 @@ int main(int argc, char *argv[], char *const envp[])
 
 		if (options.display & IDLE_DISPLAY) {
 			output_handler->cstate_table_header(options.report_data);
-			dump_cpu_topo_info(output_handler, options.report_data, display_cstates, 1);
+			dump_cpu_topo_info(output_handler, options.report_data, display_cstates, cpu_topo, 1);
 			output_handler->cstate_table_footer(options.report_data);
 		}
 
 		if (options.display & FREQUENCY_DISPLAY) {
 			output_handler->pstate_table_header(options.report_data);
-			dump_cpu_topo_info(output_handler, options.report_data, display_pstates, 0);
+			dump_cpu_topo_info(output_handler, options.report_data, display_pstates, cpu_topo, 0);
 			output_handler->pstate_table_footer(options.report_data);
 		}
 
 		if (options.display & WAKEUP_DISPLAY) {
 			output_handler->wakeup_table_header(options.report_data);
-			dump_cpu_topo_info(output_handler, options.report_data, display_wakeup, 1);
+			dump_cpu_topo_info(output_handler, options.report_data, display_wakeup, cpu_topo, 1);
 			output_handler->wakeup_table_footer(options.report_data);
 		}
 
 		if (options.energy_model_filename)
-			calculate_energy_consumption(&options);
+			calculate_energy_consumption(cpu_topo, &options);
 
 		output_handler->close_report_file(options.report_data);
 	}
 
 	release_init_pstates(initp);
-	release_cpu_topo_cstates();
-	release_cpu_topo_info();
+	release_cpu_topo_cstates(cpu_topo);
+	release_cpu_topo_info(cpu_topo);
 	release_pstate_info(datas->pstates, datas->nrcpus);
 	release_cstate_info(datas->cstates, datas->nrcpus);
 	free(datas);

@@ -62,18 +62,17 @@ struct cpu_topology {
 	int physical_num;
 };
 
-extern int init_cpu_topo_info(void);
-extern int read_cpu_topo_info(FILE *f, char *buf);
-extern int read_sysfs_cpu_topo(void);
-extern int release_cpu_topo_info(void);
-extern int output_cpu_topo_info(FILE *f);
+extern struct cpu_topology *alloc_cpu_topo_info(void);
+extern struct cpu_topology *read_cpu_topo_info(FILE *f, char *buf);
+extern struct cpu_topology *read_sysfs_cpu_topo(void);
+extern int release_cpu_topo_info(struct cpu_topology *topo);
+extern int output_cpu_topo_info(struct cpu_topology *topo, FILE *f);
 extern int establish_idledata_to_topo(struct cpuidle_datas *datas);
-extern int release_cpu_topo_cstates(void);
-extern int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, char *, void *), int cstate);
+extern int release_cpu_topo_cstates(struct cpu_topology *topo);
+extern int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, char *, void *), struct cpu_topology *topo, int cstate);
 
 extern struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core);
 extern struct cpuidle_cstates *
 	physical_cluster_data(struct cpu_physical *s_phy);
 
-extern struct cpu_topology g_cpu_topo_list;
 #endif
