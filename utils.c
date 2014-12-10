@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <assert.h>
+#include <stdarg.h>
 
 #include "utils.h"
 
@@ -55,6 +56,33 @@ void *ptrerror(const char *str)
 int is_err(const void *ptr)
 {
 	return ptr == ERROR_VALUE_PTR;
+}
+
+static int verbose_level;
+
+void set_verbose_level(int level)
+{
+	verbose_level = level;
+}
+
+int verbose_printf(int min_level, const char *fmt, ...)
+{
+	va_list ap;
+
+	if (min_level > verbose_level)
+		return 0;
+
+	return vprintf(fmt, ap);
+}
+
+int verbose_fprintf(FILE *f, int min_level, const char *fmt, ...)
+{
+	va_list ap;
+
+	if (min_level > verbose_level)
+		return 0;
+
+	return vfprintf(f, fmt, ap);
 }
 
 int write_int(const char *path, int val)

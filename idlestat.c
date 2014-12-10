@@ -1238,7 +1238,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			exit(0);
 			break;
 		case 'v':
-			options->verbose++;
+			set_verbose_level(++options->verbose);
 			break;
 		case 'e':
 			options->energy_model_filename = optarg;

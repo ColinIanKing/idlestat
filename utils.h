@@ -27,11 +27,11 @@
 #ifndef __UTILS_H
 #define __UTILS_H
 
-#define print_vrb(level, fmt, ...)				\
-	do {							\
-		if (options->verbose >= (level))		\
-			fprintf(stderr, (fmt), ##__VA_ARGS__);	\
-	} while(0)
+#include <stdio.h>
+
+extern void set_verbose_level(int level);
+extern int verbose_printf(int min_level, const char *fmt, ...);
+extern int verbose_fprintf(FILE *f, int min_level, const char *fmt, ...);
 
 extern int write_int(const char *path, int val);
 extern int read_int(const char *path, int *val);

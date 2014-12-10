@@ -338,7 +338,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 		cluster_idl = 0.0;
 		cluster_wkp = 0.0;
 
-		print_vrb(1, "\n\nCluster%c%29s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
+		verbose_fprintf(stderr, 1, "\n\nCluster%c%29s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
 				'A' + current_cluster, "", "[us] Duration", "Power", "Energy", "E_cap", "E_idle", "E_wkup");
 
 		/* All C-States on current cluster */
@@ -347,14 +347,14 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 			struct cpuidle_cstate *c = &s_phy->cstates->cstate[j];
 
 			if (c->nrdata == 0) {
-				print_vrb(2, "      C%-2d +%7d hits for [%s]\n",
+				verbose_fprintf(stderr, 2, "      C%-2d +%7d hits for [%s]\n",
 				 		j, c->nrdata, c->name);
 				continue;
 			}
 
 			cp = find_cstate_energy_info(current_cluster, c->name);
 			if (!cp) {
-				print_vrb(2, "      C%-2d no energy model for [%s] (%d hits, %f duration)\n",
+				verbose_fprintf(stderr, 2, "      C%-2d no energy model for [%s] (%d hits, %f duration)\n",
 				 		j, c->name, c->nrdata, c->duration);
 				continue;
 			}
@@ -364,7 +364,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 
 				cluster_wkp += c->nrdata * clustp->wakeup_energy.cluster_wakeup_energy;
 
-				print_vrb(1, "      C%-2d +%7d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
+				verbose_fprintf(stderr, 1, "      C%-2d +%7d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
 					j, c->nrdata, c->name,
 					"", "",
 					clustp->wakeup_energy.cluster_wakeup_energy,
@@ -374,7 +374,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 
 			cluster_idl += c->duration * cp->cluster_idle_power;
 
-			print_vrb(1, "      C%-2d +%7d hits for [%7s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
+			verbose_fprintf(stderr, 1, "      C%-2d +%7d hits for [%7s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
 					j, c->nrdata, c->name,
 					c->duration,
 					cp->cluster_idle_power,
@@ -397,20 +397,20 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 				for (i = 0; i < s_cpu->cstates->cstate_max + 1; i++) {
 					struct cpuidle_cstate *c = &s_cpu->cstates->cstate[i];
 					if (c->nrdata == 0) {
-						print_vrb(2, "Cpu%d  C%-2d +%7d hits for [%4s]\n",
+						verbose_fprintf(stderr, 2, "Cpu%d  C%-2d +%7d hits for [%4s]\n",
 						 	s_cpu->cpu_id, i, c->nrdata, c->name);
 						continue;
 					}
 					cp = find_cstate_energy_info(current_cluster, c->name);
 					if (!cp) {
-						print_vrb(2, "Cpu%d  C%-2d no energy model for [%s] (%d hits, %f duration)\n",
+						verbose_fprintf(stderr, 2, "Cpu%d  C%-2d no energy model for [%s] (%d hits, %f duration)\n",
 							s_cpu->cpu_id, i, c->name,
 							c->nrdata, c->duration);
 						continue;
 					}
 					cluster_idl += c->duration * cp->core_idle_power;
 
-					print_vrb(1, "Cpu%d  C%-2d +%7d hits for [%7s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
+					verbose_fprintf(stderr, 1, "Cpu%d  C%-2d +%7d hits for [%7s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
 							s_cpu->cpu_id, i, c->nrdata, c->name,
 							c->duration,
 							cp->core_idle_power,
@@ -423,7 +423,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 
 						cluster_wkp += c->nrdata * clustp->wakeup_energy.core_wakeup_energy;
 
-						print_vrb(1, "Cpu%d  C%-2d +%6d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
+						verbose_fprintf(stderr, 1, "Cpu%d  C%-2d +%6d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
 								s_cpu->cpu_id, i, c->nrdata, c->name,
 								"", "",
 								clustp->wakeup_energy.core_wakeup_energy,
@@ -438,13 +438,13 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 					struct cpufreq_pstate *p = &s_cpu->pstates->pstate[i];
 
 					if (p->count == 0) {
-						print_vrb(2, "Cpu%d  P%-2d +%7d hits for [%d]\n",
+						verbose_fprintf(stderr, 2, "Cpu%d  P%-2d +%7d hits for [%d]\n",
 							s_cpu->cpu_id, i, p->count, p->freq/1000);
 						continue;
 					}
 					pp = find_pstate_energy_info(current_cluster, p->freq/1000);
 					if (!pp) {
-						print_vrb(2, "Cpu%d  P%-2d no energy model for [%d] (%d hits, %f duration)\n",
+						verbose_fprintf(stderr, 2, "Cpu%d  P%-2d no energy model for [%d] (%d hits, %f duration)\n",
 							s_cpu->cpu_id, i, p->freq/1000,
 							p->count, p->duration);
 						continue;
@@ -454,7 +454,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 
 					cluster_cap += p->duration * pp->core_power;
 
-					print_vrb(1, "Cpu%d  P%-2d +%7d hits for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
+					verbose_fprintf(stderr, 1, "Cpu%d  P%-2d +%7d hits for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
 							s_cpu->cpu_id, i, p->count, p->freq/1000,
 							p->duration, pp->core_power,
 							"",
@@ -472,7 +472,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 			pp = &clustp->p_energy[i];
 			cluster_cap += pp->max_core_duration * pp->cluster_power;
 
-			print_vrb(1, "       P%02d cap estimate for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
+			verbose_fprintf(stderr, 1, "       P%02d cap estimate for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
 					clustp->number_cap_states - i - 1, pp->speed,
 					pp->max_core_duration,
 					pp->cluster_power,
@@ -496,7 +496,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 
 		printf("\n");
 
-		print_vrb(1, "\n\nCluster%c%29s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
+		verbose_fprintf(stderr, 1, "\n\nCluster%c%29s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
 				'A' + current_cluster, "", "[us] Duration", "Power", "Energy", "E_cap", "E_idle", "E_wkup");
 
 		/* Convert all [us] components to [s] just here to avoid summing
