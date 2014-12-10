@@ -115,6 +115,7 @@ struct cpuidle_datas {
 	struct cpuidle_cstates *cstates;
 	struct cpufreq_pstates *pstates;
 	struct cpu_topology *topo;
+	struct cpuidle_datas *baseline;
 	int nrcpus;
 };
 
@@ -128,6 +129,7 @@ struct program_options {
 	int display;
 	unsigned int duration;
 	char *filename;
+	char *baseline_filename;
 	char *outfilename;
 	int verbose;
 	char *energy_model_filename;

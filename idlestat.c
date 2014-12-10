@@ -804,6 +804,20 @@ int store_data(double time, int state, int cpu,
 	return ret;
 }
 
+static void release_datas(struct cpuidle_datas *datas)
+{
+	if (datas == NULL)
+		return;
+
+	release_datas(datas->baseline);
+	release_cpu_topo_cstates(datas->topo);
+	release_cpu_topo_info(datas->topo);
+	release_pstate_info(datas->pstates, datas->nrcpus);
+	release_cstate_info(datas->cstates, datas->nrcpus);
+	free(datas);
+}
+
+
 static struct wakeup_irq *find_irqinfo(struct wakeup_info *wakeinfo, int irqid,
 				       const char *irqname)
 {
@@ -1141,12 +1155,14 @@ static void help(const char *cmd)
 {
 	fprintf(stderr,
 		"\nUsage:\nTrace mode:\n\t%s --trace -f|--trace-file <filename>"
+		" -b|--baseline-trace <filename>"
 		" -o|--output-file <filename> -t|--duration <seconds>"
 		" -r|--report-format <format>"
 		" -C|--csv-report -B|--boxless-report"
 		" -c|--idle -p|--frequency -w|--wakeup", basename(cmd));
 	fprintf(stderr,
 		"\nReporting mode:\n\t%s --import -f|--trace-file <filename>"
+		" -b|--baseline-trace <filename>"
 		" -r|--report-format <format>"
 		" -C|--csv-report -B|--boxless-report"
 		" -o|--output-file <filename>", basename(cmd));
@@ -1184,6 +1200,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "trace",       no_argument,       &options->mode, TRACE },
 		{ "import",      no_argument,       &options->mode, IMPORT },
 		{ "trace-file",  required_argument, NULL, 'f' },
+		{ "baseline-trace", required_argument, NULL, 'b' },
 		{ "output-file", required_argument, NULL, 'o' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ "duration",    required_argument, NULL, 't' },
@@ -1217,6 +1234,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		switch (c) {
 		case 'f':
 			options->filename = optarg;
+			break;
+		case 'b':
+			options->baseline_filename = optarg;
 			break;
 		case 'o':
 			options->outfilename = optarg;
@@ -1300,6 +1320,10 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 	}
 
 	if (bad_filename(options->filename))
+		return -1;
+
+	if (options->baseline_filename != NULL &&
+			bad_filename(options->baseline_filename))
 		return -1;
 
 	if (options->outfilename && bad_filename(options->outfilename))
@@ -1497,6 +1521,7 @@ static int execute(int argc, char *argv[], char *const envp[],
 int main(int argc, char *argv[], char *const envp[])
 {
 	struct cpuidle_datas *datas;
+	struct cpuidle_datas *baseline;
 	struct program_options options;
 	int args;
 	double start_ts = 0, end_ts = 0;
@@ -1614,6 +1639,15 @@ int main(int argc, char *argv[], char *const envp[])
 	if (is_err(datas))
 		return 1;
 
+	if (options.baseline_filename)
+		baseline = idlestat_load(options.baseline_filename);
+	else
+		baseline = NULL;
+
+	if (is_err(baseline))
+		return 1;
+
+	datas->baseline = baseline;
 	cpu_topo = datas->topo;
 
 	/* Compute cluster idle intersection between cpus belonging to
@@ -1648,11 +1682,7 @@ int main(int argc, char *argv[], char *const envp[])
 	}
 
 	release_init_pstates(initp);
-	release_cpu_topo_cstates(cpu_topo);
-	release_cpu_topo_info(cpu_topo);
-	release_pstate_info(datas->pstates, datas->nrcpus);
-	release_cstate_info(datas->cstates, datas->nrcpus);
-	free(datas);
+	release_datas(datas);
 
 	return 0;
 }
