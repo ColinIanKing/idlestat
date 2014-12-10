@@ -103,7 +103,8 @@ static void csv_wakeup_single_state(struct wakeup_irq *irqinfo, void *report_dat
 	}
 }
 
-struct report_ops csv_report_ops = {
+static struct report_ops csv_report_ops = {
+	.name = "csv",
 	.check_output = csv_check_output,
 
 	.open_report_file = csv_open_report_file,
@@ -127,3 +128,5 @@ struct report_ops csv_report_ops = {
 	.wakeup_single_state = csv_wakeup_single_state,
 	.wakeup_end_cpu = csv_cstate_end_cpu,
 };
+
+EXPORT_REPORT_OPS(csv);

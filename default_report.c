@@ -263,7 +263,8 @@ static void default_wakeup_table_footer(void *report_data)
 }
 
 
-struct report_ops default_report_ops = {
+static struct report_ops default_report_ops = {
+	.name = "default",
 	.check_output = default_check_output, /* Shared */
 
 	.open_report_file = default_open_report_file, /* Shared */
@@ -288,7 +289,10 @@ struct report_ops default_report_ops = {
 	.wakeup_end_cpu = default_end_cpu,
 };
 
-struct report_ops boxless_report_ops = {
+EXPORT_REPORT_OPS(default);
+
+static struct report_ops boxless_report_ops = {
+	.name = "boxless",
 	.check_output = default_check_output,
 
 	.open_report_file = default_open_report_file,
@@ -312,3 +316,5 @@ struct report_ops boxless_report_ops = {
 	.wakeup_single_state = boxless_wakeup_single_state,
 	.wakeup_end_cpu = boxless_end_cpu,
 };
+
+EXPORT_REPORT_OPS(boxless);

@@ -131,7 +131,7 @@ struct program_options {
 	char *outfilename;
 	int verbose;
 	char *energy_model_filename;
-	struct report_ops *report_ops;
+	char *report_type_name;
 	void *report_data;
 };
 

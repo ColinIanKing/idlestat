@@ -1142,10 +1142,12 @@ static void help(const char *cmd)
 	fprintf(stderr,
 		"\nUsage:\nTrace mode:\n\t%s --trace -f|--trace-file <filename>"
 		" -o|--output-file <filename> -t|--duration <seconds>"
+		" -r|--report-format <format>"
 		" -C|--csv-report -B|--boxless-report"
 		" -c|--idle -p|--frequency -w|--wakeup", basename(cmd));
 	fprintf(stderr,
 		"\nReporting mode:\n\t%s --import -f|--trace-file <filename>"
+		" -r|--report-format <format>"
 		" -C|--csv-report -B|--boxless-report"
 		" -o|--output-file <filename>", basename(cmd));
 	fprintf(stderr,
@@ -1167,6 +1169,8 @@ static void help(const char *cmd)
 		"\n5. Run a trace, post-process the results and print all"
 		" statistics into a file:\n\tsudo ./%s --trace -f /tmp/mytrace -t 10 -p -c -w"
 		" -o /tmp/myreport\n", basename(cmd));
+	fprintf(stderr, "\nReport formats supported:");
+	list_report_formats_to_stderr();
 }
 
 static void version(const char *cmd)
@@ -1189,6 +1193,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "frequency",   no_argument,       NULL, 'p' },
 		{ "wakeup",      no_argument,       NULL, 'w' },
 		{ "energy-model-file",  required_argument, NULL, 'e' },
+		{ "report-format", required_argument, NULL, 'r' },
 		{ "csv-report",  no_argument,       NULL, 'C' },
 		{ "boxless-report", no_argument,    NULL, 'B' },
 		{ 0, 0, 0, 0 }
@@ -1199,13 +1204,12 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 	options->filename = NULL;
 	options->outfilename = NULL;
 	options->mode = -1;
-	options->report_ops = &default_report_ops;
 
 	while (1) {
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":de:f:o:ht:cpwVvCB",
+		c = getopt_long(argc, argv, ":de:f:o:ht:r:cpwVvCB",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1243,12 +1247,30 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		case 'e':
 			options->energy_model_filename = optarg;
 			break;
+		case 'r':
+			if (options->report_type_name == NULL) {
+				options->report_type_name = optarg;
+				break;
+			}
+			fprintf(stderr, "-r: report type already set to %s\n",
+				options->report_type_name);
+			return -1;
 		case 'C':
-			options->report_ops = &csv_report_ops;
-			break;
+			if (options->report_type_name == NULL) {
+				options->report_type_name = "csv";
+				break;
+			}
+			fprintf(stderr, "-C: report type already set to %s\n",
+				options->report_type_name);
+			return -1;
 		case 'B':
-			options->report_ops = &boxless_report_ops;
-			break;
+			if (options->report_type_name == NULL) {
+				options->report_type_name = "boxless";
+				break;
+			}
+			fprintf(stderr, "-B: report type already set to %s\n",
+				options->report_type_name);
+			return -1;
 		case 0:     /* getopt_long() set a variable, just keep going */
 			break;
 		case ':':   /* missing option argument */
@@ -1263,6 +1285,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			return -1;
 		}
 	}
+
+	if (options->report_type_name == NULL)
+		options->report_type_name = "default";
 
 	if (options->mode < 0) {
 		fprintf(stderr, "select a mode: --trace or --import\n");
@@ -1490,7 +1515,10 @@ int main(int argc, char *argv[], char *const envp[])
 		return 1;
 	}
 
-	output_handler = options.report_ops;
+	output_handler = get_report_ops(options.report_type_name);
+	if (is_err(output_handler))
+		return 1;
+
 	if (output_handler->check_options &&
 			output_handler->check_options(&options) < 0)
 		return 1;

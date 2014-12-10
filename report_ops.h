@@ -7,6 +7,7 @@ struct cpufreq_pstate;
 struct wakeup_irq;
 
 struct report_ops {
+	const char *name;
 	int (*check_options)(struct program_options *);
 	int (*check_output)(struct program_options *, void *);
 
@@ -32,8 +33,15 @@ struct report_ops {
 	void (*wakeup_end_cpu)(void *);
 };
 
-extern struct report_ops default_report_ops;
-extern struct report_ops csv_report_ops;
-extern struct report_ops boxless_report_ops;
+extern void list_report_formats_to_stderr(void);
+extern struct report_ops *get_report_ops(const char *name);
+
+#define EXPORT_REPORT_OPS(reporttype_name)			\
+	static const struct report_ops				\
+	__attribute__ ((__used__))				\
+	__attribute__ ((__section__ ("__report_ops")))		\
+	* reporttype_name ## _report_ptr = &reporttype_name##_report_ops
+
+extern const struct report_ops *report_ops_head;
 
 #endif
