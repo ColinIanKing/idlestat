@@ -1749,7 +1749,7 @@ int main(int argc, char *argv[], char *const envp[])
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
 		if (output_handler->open_report_file(options.outfilename, options.report_data))
-			return -1;
+			return 1;
 
 		if (options.display & IDLE_DISPLAY) {
 			output_handler->cstate_table_header(options.report_data);
