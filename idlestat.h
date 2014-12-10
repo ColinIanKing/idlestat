@@ -123,11 +123,6 @@ enum modes {
 	IMPORT
 };
 
-enum formats {
-	IDLESTAT_HEADER = 0,
-	TRACE_CMD_HEADER
-};
-
 struct program_options {
 	int mode;
 	int display;
