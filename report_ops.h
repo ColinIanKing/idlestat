@@ -7,6 +7,7 @@ struct cpufreq_pstate;
 struct wakeup_irq;
 
 struct report_ops {
+	int (*check_options)(struct program_options *);
 	int (*check_output)(struct program_options *, void *);
 
 	int (*open_report_file)(char *path, void *);

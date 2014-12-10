@@ -1491,6 +1491,9 @@ int main(int argc, char *argv[], char *const envp[])
 	}
 
 	output_handler = options.report_ops;
+	if (output_handler->check_options &&
+			output_handler->check_options(&options) < 0)
+		return 1;
 
 	if (output_handler->check_output(&options, options.report_data))
 		return 1;
