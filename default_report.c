@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include "report_ops.h"
 #include "idlestat.h"
 #include "utils.h"
 
