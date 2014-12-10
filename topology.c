@@ -450,10 +450,16 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	int    i;
 	int    has_topo = 0;
 	struct cpu_topology *topo;
+	struct cpuidle_datas *baseline;
 
 	assert(datas != NULL);
 	topo = datas->topo;
 	assert(topo != NULL);
+
+	if (datas->baseline)
+		baseline = datas->baseline;
+	else
+		baseline = NULL;
 
 	for (i = 0; i < datas->nrcpus; i++) {
 		s_cpu = find_cpu_point(topo, i);
@@ -461,6 +467,10 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 			s_cpu->cstates = &datas->cstates[i];
 			s_cpu->pstates = &datas->pstates[i];
 			has_topo = 1;
+			if (baseline) {
+				s_cpu->base_cstates = baseline->cstates + i;
+				s_cpu->base_pstates = baseline->pstates + i;
+			}
 		}
 	}
 

@@ -38,6 +38,8 @@ struct cpu_cpu {
 	int cpu_id;
 	struct cpuidle_cstates *cstates;
 	struct cpufreq_pstates *pstates;
+	struct cpuidle_cstates *base_cstates;
+	struct cpufreq_pstates *base_pstates;
 };
 
 struct cpu_core {
