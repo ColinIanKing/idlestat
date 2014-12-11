@@ -1,0 +1,55 @@
+This file describes the format of idlestat energy model files
+(using the included energy_model file as an example):
+
+Lines starting with # or which are blank are ignored.
+
+First, specify how many clusters there are.
+
+clusters 1
+
+For each cluster (named clusterA, clusterB, etc.) specify
+how many cap states and C states there are. Idlestat will check
+that the correct number of clusters are provided.
+
+#
+clusterA: 16 cap states 5 C states
+
+Then specify the name, cluster power and core power for each P-state
+(idlestat will check if there are the correct number of P-states provided)
+in the cluster.
+
+P-states:
+# speed, cluster power, core power
+2901	6200	3200
+2900	6190	3190
+2800	6180	3180
+2700	6170	3170
+2500	6160	3160
+2400	6150	3150
+2300	6140	3140
+2200	6130	3130
+2000	6120	3120
+1900	6110	3110
+1800	6100	3100
+1700	6090	3090
+1600	6080	3080
+1400	6070	3070
+1300	6060	3060
+1200	6050	3050
+
+Then specify the name, cluster power and core power for each C-state
+(idlestat will check if there are the correct number of C-states provided)
+in the cluster.
+
+C-states:
+C1-IVB	25	0
+C1E-IVB	30	0
+C3-IVB	35	0
+C6-IVB	40	0
+C7-IVB	35	0
+
+Finally, specify the wakeup power.
+
+wakeup	210	6
+
+Repeat for each cluster.
