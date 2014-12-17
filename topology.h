@@ -71,7 +71,7 @@ extern int release_cpu_topo_info(struct cpu_topology *topo);
 extern int output_cpu_topo_info(struct cpu_topology *topo, FILE *f);
 extern int establish_idledata_to_topo(struct cpuidle_datas *datas);
 extern int release_cpu_topo_cstates(struct cpu_topology *topo);
-extern int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, char *, void *), struct cpu_topology *topo, int cstate);
+extern int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, void *, char *, void *), struct cpu_topology *topo, int cstate);
 
 extern struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core);
 extern struct cpuidle_cstates *

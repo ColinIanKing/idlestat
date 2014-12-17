@@ -110,7 +110,7 @@ static int get_trace_ts(double *ts)
 	return -1;
 }
 
-static int display_cstates(struct report_ops *ops, void *arg, char *cpu, void *report_data)
+static int display_cstates(struct report_ops *ops, void *arg, void *baseline, char *cpu, void *report_data)
 {
 	int i;
 	bool cpu_header = false;
@@ -136,7 +136,7 @@ static int display_cstates(struct report_ops *ops, void *arg, char *cpu, void *r
 	return 0;
 }
 
-static int display_pstates(struct report_ops *ops, void *arg, char *cpu, void *report_data)
+static int display_pstates(struct report_ops *ops, void *arg, void *baseline, char *cpu, void *report_data)
 {
 	int i;
 	bool cpu_header = false;
@@ -164,7 +164,7 @@ static int display_pstates(struct report_ops *ops, void *arg, char *cpu, void *r
 	return 0;
 }
 
-static int display_wakeup(struct report_ops *ops, void *arg, char *cpu, void *report_data)
+static int display_wakeup(struct report_ops *ops, void *arg, void *baseline, char *cpu, void *report_data)
 {
 	int i;
 	bool cpu_header = false;

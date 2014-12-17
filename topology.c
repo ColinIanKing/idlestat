@@ -500,7 +500,7 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	return 0;
 }
 
-int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, char *, void *), struct cpu_topology *topo, int cstate)
+int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, void *, char *, void *), struct cpu_topology *topo, int cstate)
 {
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
@@ -513,20 +513,27 @@ int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(st
 		sprintf(tmp, "cluster%c", s_phy->physical_id + 'A');
 
 		if (cstate)
-			dump(ops, s_phy->cstates, tmp, report_data);
+			dump(ops, s_phy->cstates, NULL, tmp, report_data);
 
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
 			if (s_core->is_ht && cstate) {
 				sprintf(tmp, "core%d", s_core->core_id);
-				dump(ops, s_core->cstates, tmp, report_data);
+				dump(ops, s_core->cstates,
+					NULL,
+					tmp, report_data);
 			}
 
 			list_for_each_entry(s_cpu, &s_core->cpu_head,
 					    list_cpu) {
 				sprintf(tmp, "cpu%d", s_cpu->cpu_id);
-				dump(ops, cstate ?
-				     (void *)s_cpu->cstates :
-				     (void *)s_cpu->pstates, tmp, report_data);
+				if (cstate)
+					dump(ops, s_cpu->cstates,
+						s_cpu->base_cstates,
+						tmp, report_data);
+				else
+					dump(ops, s_cpu->pstates,
+						s_cpu->base_pstates,
+						tmp, report_data);
 			}
 		}
 	}
