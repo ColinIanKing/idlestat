@@ -11,6 +11,7 @@ struct trace_ops {
 	struct cpuidle_datas *(*load)(const char *filename);
 };
 
+extern int load_text_data_line(char *buffer, struct cpuidle_datas *datas, char *format, double *begin, double *end, size_t *count, size_t *start);
 extern void load_text_data_lines(FILE *f, char *buffer, struct cpuidle_datas *datas);
 
 #define EXPORT_TRACE_OPS(tracetype_name)			\

@@ -24,7 +24,8 @@
 CFLAGS?=-g -Wall
 CC=gcc
 
-TRACE_OBJS =	tracefile_idlestat.o tracefile_ftrace.o
+TRACE_OBJS =	tracefile_idlestat.o tracefile_ftrace.o \
+		tracefile_tracecmd.o
 REPORT_OBJS =	default_report.o csv_report.o comparison_report.o
 
 

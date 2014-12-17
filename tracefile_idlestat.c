@@ -87,48 +87,54 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, char *buffer,
 	return cstates;
 }
 
-void load_text_data_lines(FILE *f, char *buffer, struct cpuidle_datas *datas)
+int load_text_data_line(char *buffer, struct cpuidle_datas *datas, char *format, double *begin, double *end, size_t *count, size_t *start)
 {
 	unsigned int state, freq, cpu;
-	double time, begin = 0, end = 0;
-	size_t count = 0, start = 1;
+	double time;
 	int ret;
 
-	do {
-		if (strstr(buffer, "cpu_idle")) {
-			if (sscanf(buffer, TRACE_FORMAT, &time, &state, &cpu)
-			    != 3) {
-				fprintf(stderr, "warning: Unrecognized cpuidle "
-					"record. The result of analysis might "
-					"be wrong.\n");
-				continue;
-			}
-
-			if (start) {
-				begin = time;
-				start = 0;
-			}
-			end = time;
-
-			store_data(time, state, cpu, datas, count);
-			count++;
-			continue;
-		} else if (strstr(buffer, "cpu_frequency")) {
-			if (sscanf(buffer, TRACE_FORMAT, &time, &freq, &cpu)
-			    != 3) {
-				fprintf(stderr, "warning: Unrecognized cpufreq "
-					"record. The result of analysis might "
-					"be wrong.\n");
-				continue;
-			}
-			cpu_change_pstate(datas, cpu, freq, time);
-			count++;
-			continue;
+	if (strstr(buffer, "cpu_idle")) {
+		if (sscanf(buffer, format, &time, &state, &cpu)
+		    != 3) {
+			fprintf(stderr, "warning: Unrecognized cpuidle "
+				"record. The result of analysis might "
+				"be wrong.\n");
+			return -1;
 		}
 
-		ret = get_wakeup_irq(datas, buffer, count);
-		count += (0 == ret) ? 1 : 0;
+		if (*start) {
+			*begin = time;
+			*start = 0;
+		}
+		*end = time;
 
+		store_data(time, state, cpu, datas, *count);
+		(*count)++;
+		return 0;
+	} else if (strstr(buffer, "cpu_frequency")) {
+		if (sscanf(buffer, format, &time, &freq, &cpu) != 3) {
+			fprintf(stderr, "warning: Unrecognized cpufreq "
+				"record. The result of analysis might "
+				"be wrong.\n");
+			return -1;
+		}
+		cpu_change_pstate(datas, cpu, freq, time);
+		(*count)++;
+		return 0;
+	}
+
+	ret = get_wakeup_irq(datas, buffer, *count);
+	*count += (0 == ret) ? 1 : 0;
+	return 0;
+}
+
+void load_text_data_lines(FILE *f, char *buffer, struct cpuidle_datas *datas)
+{
+	double begin = 0, end = 0;
+	size_t count = 0, start = 1;
+
+	do {
+		load_text_data_line(buffer, datas, TRACE_FORMAT, &begin, &end, &count, &start);
 	} while (fgets(buffer, BUFSIZE, f));
 
 	fprintf(stderr, "Log is %lf secs long with %zd events\n",
