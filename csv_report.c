@@ -67,7 +67,7 @@ static void csv_pstate_table_footer(void *report_data)
 	printf("\n\n");
 }
 
-static void csv_pstate_single_state(struct cpufreq_pstate *p, void *report_data)
+static void csv_pstate_single_freq(struct cpufreq_pstate *p, void *report_data)
 {
 	printf(",,,%d,", p->freq);
 	printf("%f,", p->min_time == DBL_MAX ? 0. : p->min_time);
@@ -90,7 +90,7 @@ static void csv_wakeup_table_footer(void *report_data)
 	printf("\n\n");
 }
 
-static void csv_wakeup_single_state(struct wakeup_irq *irqinfo, void *report_data)
+static void csv_wakeup_single_irq(struct wakeup_irq *irqinfo, void *report_data)
 {
 	if (irqinfo->id != -1) {
 		printf(",,,%d,%s,%d,%d,%d\n",
@@ -119,13 +119,13 @@ static struct report_ops csv_report_ops = {
 	.pstate_table_header = csv_pstate_table_header,
 	.pstate_table_footer = csv_pstate_table_footer,
 	.pstate_cpu_header = csv_cstate_cpu_header,
-	.pstate_single_state = csv_pstate_single_state,
+	.pstate_single_freq = csv_pstate_single_freq,
 	.pstate_end_cpu = csv_cstate_end_cpu,
 
 	.wakeup_table_header = csv_wakeup_table_header,
 	.wakeup_table_footer = csv_wakeup_table_footer,
 	.wakeup_cpu_header = csv_cstate_cpu_header,
-	.wakeup_single_state = csv_wakeup_single_state,
+	.wakeup_single_irq = csv_wakeup_single_irq,
 	.wakeup_end_cpu = csv_cstate_end_cpu,
 };
 

@@ -58,12 +58,12 @@ struct report_ops *get_report_ops(const char *name)
 		assert((*ops_it)->pstate_table_header);
 		assert((*ops_it)->pstate_table_footer);
 		assert((*ops_it)->pstate_cpu_header);
-		assert((*ops_it)->pstate_single_state);
+		assert((*ops_it)->pstate_single_freq);
 		assert((*ops_it)->pstate_end_cpu);
 		assert((*ops_it)->wakeup_table_header);
 		assert((*ops_it)->wakeup_table_footer);
 		assert((*ops_it)->wakeup_cpu_header);
-		assert((*ops_it)->wakeup_single_state);
+		assert((*ops_it)->wakeup_single_irq);
 		assert((*ops_it)->wakeup_end_cpu);
 		/* Compare name */
 		if (!strcmp((*ops_it)->name, name))

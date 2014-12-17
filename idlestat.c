@@ -155,7 +155,7 @@ static int display_pstates(struct report_ops *ops, void *arg, void *baseline, ch
 			cpu_header = true;
 		}
 
-		ops->pstate_single_state(p, report_data);
+		ops->pstate_single_freq(p, report_data);
 	}
 
 	if (cpu_header)
@@ -179,7 +179,7 @@ static int display_wakeup(struct report_ops *ops, void *arg, void *baseline, cha
 			cpu_header = true;
 		}
 
-		ops->wakeup_single_state(irqinfo, report_data);
+		ops->wakeup_single_irq(irqinfo, report_data);
 	}
 
 	if (cpu_header)

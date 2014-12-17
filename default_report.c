@@ -158,7 +158,7 @@ static void default_pstate_cpu_header(const char *cpu, void *report_data)
 	default_cpu_header(cpu, 64);
 }
 
-static void boxless_pstate_single_state(struct cpufreq_pstate *p, void *report_data)
+static void boxless_pstate_single_freq(struct cpufreq_pstate *p, void *report_data)
 {
 	printf("  ");
 	display_factored_freq(p->freq, 8);
@@ -173,7 +173,7 @@ static void boxless_pstate_single_state(struct cpufreq_pstate *p, void *report_d
 	printf("   %5d\n", p->count);
 }
 
-static void default_pstate_single_state(struct cpufreq_pstate *p, void *report_data)
+static void default_pstate_single_freq(struct cpufreq_pstate *p, void *report_data)
 {
 	printf("| ");
 	display_factored_freq(p->freq, 8);
@@ -225,7 +225,7 @@ static void default_wakeup_cpu_header(const char *cpu, void *report_data)
 	default_cpu_header(cpu, 55);
 }
 
-static void boxless_wakeup_single_state(struct wakeup_irq *irqinfo, void *report_data)
+static void boxless_wakeup_single_irq(struct wakeup_irq *irqinfo, void *report_data)
 {
 	if (irqinfo->id != -1) {
 		printf("  %-3d   %-15.15s   %7d   %7d   %7d\n",
@@ -238,7 +238,7 @@ static void boxless_wakeup_single_state(struct wakeup_irq *irqinfo, void *report
 	}
 }
 
-static void default_wakeup_single_state(struct wakeup_irq *irqinfo, void *report_data)
+static void default_wakeup_single_irq(struct wakeup_irq *irqinfo, void *report_data)
 {
 	if (irqinfo->id != -1) {
 		printf("| %-3d | %-15.15s | %7d | %7d | %7d |\n",
@@ -279,13 +279,13 @@ static struct report_ops default_report_ops = {
 	.pstate_table_header = default_pstate_table_header,
 	.pstate_table_footer = default_pstate_table_footer,
 	.pstate_cpu_header = default_pstate_cpu_header,
-	.pstate_single_state = default_pstate_single_state,
+	.pstate_single_freq = default_pstate_single_freq,
 	.pstate_end_cpu = default_end_cpu,
 
 	.wakeup_table_header = default_wakeup_table_header,
 	.wakeup_table_footer = default_wakeup_table_footer,
 	.wakeup_cpu_header = default_wakeup_cpu_header,
-	.wakeup_single_state = default_wakeup_single_state,
+	.wakeup_single_irq = default_wakeup_single_irq,
 	.wakeup_end_cpu = default_end_cpu,
 };
 
@@ -307,13 +307,13 @@ static struct report_ops boxless_report_ops = {
 	.pstate_table_header = boxless_pstate_table_header,
 	.pstate_table_footer = boxless_pstate_table_footer,
 	.pstate_cpu_header = boxless_cpu_header,
-	.pstate_single_state = boxless_pstate_single_state,
+	.pstate_single_freq = boxless_pstate_single_freq,
 	.pstate_end_cpu = boxless_end_cpu,
 
 	.wakeup_table_header = boxless_wakeup_table_header,
 	.wakeup_table_footer = boxless_wakeup_table_footer,
 	.wakeup_cpu_header = boxless_cpu_header,
-	.wakeup_single_state = boxless_wakeup_single_state,
+	.wakeup_single_irq = boxless_wakeup_single_irq,
 	.wakeup_end_cpu = boxless_end_cpu,
 };
 

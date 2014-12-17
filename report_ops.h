@@ -23,13 +23,13 @@ struct report_ops {
 	void (*pstate_table_header)(void *);
 	void (*pstate_table_footer)(void *);
 	void (*pstate_cpu_header)(const char *cpu, void *);
-	void (*pstate_single_state)(struct cpufreq_pstate*, void *);
+	void (*pstate_single_freq)(struct cpufreq_pstate*, void *);
 	void (*pstate_end_cpu)(void*);
 
 	void (*wakeup_table_header)(void *);
 	void (*wakeup_table_footer)(void *);
 	void (*wakeup_cpu_header)(const char *cpu, void *);
-	void (*wakeup_single_state)(struct wakeup_irq *irqinfo, void *);
+	void (*wakeup_single_irq)(struct wakeup_irq *irqinfo, void *);
 	void (*wakeup_end_cpu)(void *);
 };
 
