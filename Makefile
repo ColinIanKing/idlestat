@@ -25,7 +25,7 @@ CFLAGS?=-g -Wall
 CC=gcc
 
 TRACE_OBJS =	tracefile_idlestat.o tracefile_ftrace.o
-REPORT_OBJS =	default_report.o csv_report.o
+REPORT_OBJS =	default_report.o csv_report.o comparison_report.o
 
 
 OBJS =	idlestat.o topology.o trace.o utils.o energy_model.o reports.o \
