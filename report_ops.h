@@ -17,12 +17,14 @@ struct report_ops {
 	void (*cstate_table_header)(void *);
 	void (*cstate_table_footer)(void *);
 	void (*cstate_cpu_header)(const char *cpu, void *);
+	void (*cstate_baseline_state)(struct cpuidle_cstate*, void *);
 	void (*cstate_single_state)(struct cpuidle_cstate*, void *);
 	void (*cstate_end_cpu)(void *);
 
 	void (*pstate_table_header)(void *);
 	void (*pstate_table_footer)(void *);
 	void (*pstate_cpu_header)(const char *cpu, void *);
+	void (*pstate_baseline_freq)(struct cpufreq_pstate*, void *);
 	void (*pstate_single_freq)(struct cpufreq_pstate*, void *);
 	void (*pstate_end_cpu)(void*);
 

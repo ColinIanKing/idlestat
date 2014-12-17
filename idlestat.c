@@ -115,11 +115,16 @@ static int display_cstates(struct report_ops *ops, void *arg, void *baseline, ch
 	int i;
 	bool cpu_header = false;
 	struct cpuidle_cstates *cstates = arg;
+	struct cpuidle_cstates *base_cstates = baseline;
 
 	for (i = 0; i < cstates->cstate_max + 1; i++) {
-		struct cpuidle_cstate *c = &cstates->cstate[i];
+		struct cpuidle_cstate *c;
+		struct cpuidle_cstate *b;
 
-		if (c->nrdata == 0)
+		c = cstates->cstate + i;
+		b = base_cstates ? base_cstates->cstate + i : NULL;
+
+		if (c->nrdata == 0 && (!b || b->nrdata == 0))
 			/* nothing to report for this state */
 			continue;
 
@@ -127,6 +132,9 @@ static int display_cstates(struct report_ops *ops, void *arg, void *baseline, ch
 			ops->cstate_cpu_header(cpu, report_data);
 			cpu_header = true;
 		}
+
+		if (b && ops->cstate_baseline_state)
+			ops->cstate_baseline_state(b, report_data);
 
 		ops->cstate_single_state(c, report_data);
 	}
@@ -141,12 +149,17 @@ static int display_pstates(struct report_ops *ops, void *arg, void *baseline, ch
 	int i;
 	bool cpu_header = false;
 	struct cpufreq_pstates *pstates = arg;
+	struct cpufreq_pstates *base_pstates = baseline;
 
 	for (i = 0; i < pstates->max; i++) {
 
-		struct cpufreq_pstate *p = &(pstates->pstate[i]);
+		struct cpufreq_pstate *p;
+		struct cpufreq_pstate *b;
 
-		if (p->count == 0)
+		p = pstates->pstate + i;
+		b = base_pstates ? base_pstates->pstate + i : NULL;
+
+		if (p->count == 0 && (!b || b->count == 0))
 			/* nothing to report for this state */
 			continue;
 
@@ -154,6 +167,9 @@ static int display_pstates(struct report_ops *ops, void *arg, void *baseline, ch
 			ops->pstate_cpu_header(cpu, report_data);
 			cpu_header = true;
 		}
+
+		if (b && ops->pstate_baseline_freq)
+			ops->pstate_baseline_freq(b, report_data);
 
 		ops->pstate_single_freq(p, report_data);
 	}
