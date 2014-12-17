@@ -8,6 +8,10 @@ struct wakeup_irq;
 
 struct report_ops {
 	const char *name;
+
+	/* No other method may be called or address taken before this */
+	int (*prepare)(struct report_ops *);
+
 	int (*check_options)(struct program_options *);
 	int (*check_output)(struct program_options *, void *);
 

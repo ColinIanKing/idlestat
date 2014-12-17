@@ -42,11 +42,21 @@ void list_report_formats_to_stderr(void)
 
 struct report_ops *get_report_ops(const char *name)
 {
-	const struct report_ops **ops_it;
+	struct report_ops **ops_it;
 
-	for (ops_it = (&report_ops_head)+1 ; *ops_it ; ++ops_it) {
-		/* All formats must export all of the asserted ops */
+	for (ops_it = (struct report_ops **)(&report_ops_head)+1 ;
+		*ops_it ; ++ops_it) {
+
+		/* Compare name */
 		assert((*ops_it)->name);
+		if (strcmp((*ops_it)->name, name))
+			continue;
+
+		/* Prepare for use */
+		if ((*ops_it)->prepare && -1 == (*ops_it)->prepare(*ops_it))
+			return NULL;
+
+		/* Check mandatory operations */
 		assert((*ops_it)->check_output);
 		assert((*ops_it)->open_report_file);
 		assert((*ops_it)->close_report_file);
@@ -65,9 +75,10 @@ struct report_ops *get_report_ops(const char *name)
 		assert((*ops_it)->wakeup_cpu_header);
 		assert((*ops_it)->wakeup_single_irq);
 		assert((*ops_it)->wakeup_end_cpu);
-		/* Compare name */
-		if (!strcmp((*ops_it)->name, name))
-			return (struct report_ops *)*ops_it;
+
+		return *ops_it;
 	}
-	return NULL;
+
+	fprintf(stderr, "Report style %s does not exist\n", name);
+	return ptrerror(NULL);
 }
