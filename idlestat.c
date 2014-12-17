@@ -1536,6 +1536,7 @@ int main(int argc, char *argv[], char *const envp[])
 	struct init_pstates *initp = NULL;
 	struct report_ops *output_handler = NULL;
 	struct cpu_topology *cpu_topo = NULL;
+	void *report_data = NULL;
 
 	args = getoptions(argc, argv, &options);
 	if (args <= 0)
@@ -1556,7 +1557,13 @@ int main(int argc, char *argv[], char *const envp[])
 			output_handler->check_options(&options) < 0)
 		return 1;
 
-	if (output_handler->check_output(&options, options.report_data))
+	if (output_handler->allocate_report_data) {
+		report_data = output_handler->allocate_report_data(&options);
+		if (is_err(report_data))
+			return 1;
+	}
+
+	if (output_handler->check_output(&options, report_data))
 		return 1;
 
 	if (options.energy_model_filename &&
@@ -1662,35 +1669,38 @@ int main(int argc, char *argv[], char *const envp[])
 	 * the same cluster
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
-		if (output_handler->open_report_file(options.outfilename, options.report_data))
+		if (output_handler->open_report_file(options.outfilename, report_data))
 			return 1;
 
 		if (options.display & IDLE_DISPLAY) {
-			output_handler->cstate_table_header(options.report_data);
-			dump_cpu_topo_info(output_handler, options.report_data, display_cstates, cpu_topo, 1);
-			output_handler->cstate_table_footer(options.report_data);
+			output_handler->cstate_table_header(report_data);
+			dump_cpu_topo_info(output_handler, report_data, display_cstates, cpu_topo, 1);
+			output_handler->cstate_table_footer(report_data);
 		}
 
 		if (options.display & FREQUENCY_DISPLAY) {
-			output_handler->pstate_table_header(options.report_data);
-			dump_cpu_topo_info(output_handler, options.report_data, display_pstates, cpu_topo, 0);
-			output_handler->pstate_table_footer(options.report_data);
+			output_handler->pstate_table_header(report_data);
+			dump_cpu_topo_info(output_handler, report_data, display_pstates, cpu_topo, 0);
+			output_handler->pstate_table_footer(report_data);
 		}
 
 		if (options.display & WAKEUP_DISPLAY) {
-			output_handler->wakeup_table_header(options.report_data);
-			dump_cpu_topo_info(output_handler, options.report_data, display_wakeup, cpu_topo, 1);
-			output_handler->wakeup_table_footer(options.report_data);
+			output_handler->wakeup_table_header(report_data);
+			dump_cpu_topo_info(output_handler, report_data, display_wakeup, cpu_topo, 1);
+			output_handler->wakeup_table_footer(report_data);
 		}
 
 		if (options.energy_model_filename)
 			calculate_energy_consumption(cpu_topo, &options);
 
-		output_handler->close_report_file(options.report_data);
+		output_handler->close_report_file(report_data);
 	}
 
 	release_init_pstates(initp);
 	release_datas(datas);
+
+	if (output_handler->release_report_data)
+		output_handler->release_report_data(report_data);
 
 	return 0;
 }

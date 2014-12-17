@@ -134,7 +134,6 @@ struct program_options {
 	int verbose;
 	char *energy_model_filename;
 	char *report_type_name;
-	void *report_data;
 };
 
 #define IDLE_DISPLAY      0x1

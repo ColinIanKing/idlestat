@@ -11,6 +11,9 @@ struct report_ops {
 	int (*check_options)(struct program_options *);
 	int (*check_output)(struct program_options *, void *);
 
+	void * (*allocate_report_data)(struct program_options *);
+	void (*release_report_data)(void *);
+
 	int (*open_report_file)(char *path, void *);
 	int (*close_report_file)(void *);
 
