@@ -489,12 +489,16 @@ static void output_pstates(FILE *f, struct init_pstates *initp, int nrcpus,
 }
 
 /**
- * alloc_pstate - allocate, sort, and initialize pstate struct to maintain
- * statistics of P-state transitions
+ * alloc_pstate - allocate and initialize a cpufreq_pstate struct if needed
  * @pstates: per-CPU P-state statistics struct
- * @freq: frequency for which the newly pstate is allocated
+ * @freq: frequency for which the new pstate should be allocated
  *
- * Return: the index of the newly allocated pstate struct
+ * This function checks the array of struct cpufreq_pstate in @pstates
+ * for an entry for @freq. If one if found, the index for this entry
+ * is returned. If not, a new entry is inserted into the array so that
+ * the frequencies are in decreasing order and the index for the new
+ * entry is returned.
+ * @return: the index of the existing or newly allocated pstate struct
  */
 static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 {
@@ -503,6 +507,12 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 
 	pstate = pstates->pstate;
 	nrfreq = pstates->max;
+
+	for (i = 0; i < nrfreq && freq <= pstate[i].freq; i++) {
+		if (pstate[i].freq == freq)
+			return i;
+	}
+	next = i;
 
 	tmp = realloc(pstate, sizeof(*pstate) * (nrfreq + 1));
 	if (!tmp) {
@@ -513,10 +523,6 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 	pstates->pstate = tmp;
 	pstates->max = nrfreq + 1;
 
-	for (i = 0; i < nrfreq && freq <= pstate[i].freq; i++)
-		;
-
-	next = i;
 	memmove(pstate + next + 1, pstate + next, sizeof(*pstate) * (nrfreq - next));
 	memset(pstate + next, 0, sizeof(*pstate));
 	for (i = nrfreq; i > next; i--)
@@ -606,18 +612,6 @@ static int get_current_pstate(struct cpuidle_datas *datas, int cpu,
 	return ps->idle;
 }
 
-static int freq_to_pstate_index(struct cpufreq_pstates *ps, unsigned int freq)
-{
-	int i;
-
-	/* find frequency in table of P-states */
-	for (i = 0; i < ps->max && freq != ps->pstate[i].freq; i++)
-		/* just search */;
-
-	/* if not found, return -1 */
-	return i >= ps->max ? -1 : ps->pstate[i].id;
-}
-
 static void open_current_pstate(struct cpufreq_pstates *ps, double time)
 {
 	ps->time_enter = time;
@@ -659,9 +653,7 @@ void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 	int cur, next;
 
 	cur = get_current_pstate(datas, cpu, &ps, &p);
-	next = freq_to_pstate_index(ps, freq);
-	if (next < 0)
-		next = alloc_pstate(ps, freq);
+	next = alloc_pstate(ps, freq);
 	assert (next >= 0);
 
 	switch (cur) {
