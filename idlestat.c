@@ -701,6 +701,48 @@ void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 	}
 }
 
+/**
+ * merge_pstates - make sure both main trace and baseline have same pstates
+ * @datas: pointer to struct cpuidle_datas for main trace
+ * @baseline: pointer to struct cpuidle_datas for baseline trace
+ *
+ * This function adds "empty" pstate records for frequencies that exist
+ * in main trace but not in baseline trace or vice versa. This makes sure
+ * that the data (with zero hits into state for thusly created entries)
+ * exists in both trace results for all frequencies used by either trace.
+ */
+static void merge_pstates(struct cpuidle_datas *datas,
+				struct cpuidle_datas *baseline)
+{
+	int cpu;
+	int idx;
+	struct cpufreq_pstates *percpu_a, *percpu_b;
+
+	assert(datas && !is_err(datas));
+	assert(baseline && !is_err(baseline));
+
+	for (cpu = 0; cpu < datas->nrcpus; ++cpu) {
+		percpu_a = &(datas->pstates[cpu]);
+		percpu_b = &(baseline->pstates[cpu]);
+
+		for (idx = 0; idx < percpu_a->max && idx < percpu_b->max; ) {
+			if (percpu_a->pstate[idx].freq >
+					percpu_b->pstate[idx].freq) {
+				assert(alloc_pstate(percpu_b,
+					percpu_a->pstate[idx].freq) == idx);
+				continue;
+			}
+			if (percpu_a->pstate[idx].freq <
+					percpu_b->pstate[idx].freq) {
+				assert(alloc_pstate(percpu_a,
+					percpu_b->pstate[idx].freq) == idx);
+				continue;
+			}
+			++idx;
+		}
+	}
+}
+
 static void cpu_pstate_idle(struct cpuidle_datas *datas, int cpu, double time)
 {
 	struct cpufreq_pstates *ps = &(datas->pstates[cpu]);
@@ -1654,10 +1696,12 @@ int main(int argc, char *argv[], char *const envp[])
 	if (is_err(datas))
 		return 1;
 
-	if (options.baseline_filename)
+	if (options.baseline_filename) {
 		baseline = idlestat_load(options.baseline_filename);
-	else
+		merge_pstates(datas, baseline);
+	} else {
 		baseline = NULL;
+	}
 
 	if (is_err(baseline))
 		return 1;
