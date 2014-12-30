@@ -35,6 +35,7 @@ extern int verbose_fprintf(FILE *f, int min_level, const char *fmt, ...);
 
 extern int write_int(const char *path, int val);
 extern int read_int(const char *path, int *val);
+extern int read_char(const char *path, char *val);
 extern int store_line(const char *line, void *data);
 extern int file_read_value(const char *path, const char *name,
 				const char *format, void *value);

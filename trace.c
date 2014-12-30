@@ -30,9 +30,43 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fts.h>
 
 #include "trace.h"
 #include "utils.h"
+#include "list.h"
+
+struct trace_options {
+	int buffer_size;
+	struct list_head list;
+};
+
+struct enabled_eventtype {
+	char *name;
+	struct list_head list;
+};
+
+int idlestat_restore_trace_options(struct trace_options *options)
+{
+	struct enabled_eventtype *pos, *n;
+	int write_problem = 0;
+
+	if (write_int(TRACE_BUFFER_SIZE_PATH, options->buffer_size))
+		write_problem = -1;
+
+	list_for_each_entry_safe(pos, n, &options->list, list) {
+		if (write_int(pos->name, 1))
+			write_problem = -1;
+
+		free(pos->name);
+		list_del(&pos->list);
+		free(pos);
+	}
+	free(options);
+	return write_problem;
+}
 
 int idlestat_trace_enable(bool enable)
 {
@@ -42,6 +76,90 @@ int idlestat_trace_enable(bool enable)
 int idlestat_flush_trace(void)
 {
 	return write_int(TRACE_FILE, 0);
+}
+
+static int events_scan(char *name, struct list_head *head)
+{
+	FTSENT *file = NULL;
+	char value;
+	struct enabled_eventtype *found_type;
+	char *paths[2];
+
+	paths[0] = name;
+	paths[1] = NULL;
+
+	FTS *fts = fts_open(paths, FTS_PHYSICAL, NULL);
+	if (!fts)
+		return error("fts_open");
+
+        while (NULL != (file = fts_read(fts))) {
+		if (file->fts_info == FTS_ERR) {
+			fprintf(stderr, "%s: %s\n", file->fts_path,
+				strerror(file->fts_errno));
+			fts_close(fts);
+			return -1;
+		}
+
+                if (strcmp(file->fts_name, "enable"))
+			continue;
+
+		if (read_char(file->fts_path, &value)) {
+			fts_close(fts);
+			return -1;
+		}
+
+		if (value != '1')
+			continue;
+
+		found_type = calloc(1, sizeof(struct enabled_eventtype));
+		if (!found_type) {
+			fts_close(fts);
+			return error(__func__);
+		}
+
+		found_type->name = strdup(file->fts_path);
+		if (!found_type->name) {
+			free(found_type);
+			return error(__func__);
+		}
+
+		list_add(&found_type->list, head);
+        }
+
+        fts_close(fts);
+        return 0;
+}
+
+#define TRACE_EVENTS_DIR TRACE_PATH "/events/"
+
+struct trace_options *idlestat_store_trace_options()
+{
+	int status;
+	struct trace_options *options;
+	struct enabled_eventtype *pos, *n;
+
+	options = calloc(1, sizeof(struct trace_options));
+	if (!options)
+		return ptrerror(__func__);
+	INIT_LIST_HEAD(&options->list);
+
+	if (read_int(TRACE_BUFFER_SIZE_PATH, &options->buffer_size))
+		goto cannot_get_event_options;
+
+	status = events_scan(TRACE_EVENTS_DIR, &options->list);
+	if (status == 0)
+		return options;
+
+cannot_get_event_options:
+	/* Failure, clean up */
+	list_for_each_entry_safe(pos, n, &options->list, list) {
+		free(pos->name);
+		list_del(&pos->list);
+		free(pos);
+	}
+
+	free(options);
+	return ptrerror(NULL);
 }
 
 int idlestat_init_trace(unsigned int duration)

@@ -1578,6 +1578,7 @@ int main(int argc, char *argv[], char *const envp[])
 	struct init_pstates *initp = NULL;
 	struct report_ops *output_handler = NULL;
 	struct cpu_topology *cpu_topo = NULL;
+	struct trace_options *saved_trace_options = NULL;
 	void *report_data = NULL;
 
 	args = getoptions(argc, argv, &options);
@@ -1616,7 +1617,6 @@ int main(int argc, char *argv[], char *const envp[])
 
 	/* Acquisition time specified means we will get the traces */
 	if ((options.mode == TRACE) || args < argc) {
-
 		/* Read cpu topology info from sysfs */
 		cpu_topo = read_sysfs_cpu_topo();
 		if (is_err(cpu_topo)) {
@@ -1632,48 +1632,52 @@ int main(int argc, char *argv[], char *const envp[])
 			return 1;
 		}
 
+		saved_trace_options = idlestat_store_trace_options();
+		if (is_err(saved_trace_options))
+			return 1;
+
 		/* Initialize the traces for cpu_idle and increase the
 		 * buffer size to let 'idlestat' to sleep instead of
 		 * acquiring data, hence preventing it to pertubate the
 		 * measurements. */
 		if (idlestat_init_trace(options.duration))
-			return 1;
+			goto err_restore_trace_options;
 
 		/* Remove all the previous traces */
 		if (idlestat_flush_trace())
-			return 1;
+			goto err_restore_trace_options;
 
 		/* Get starting timestamp */
 		if (get_trace_ts(&start_ts) == -1)
-			return 1;
+			goto err_restore_trace_options;
 
 		initp = build_init_pstates();
 
 		/* Start the recording */
 		if (idlestat_trace_enable(true))
-			return 1;
+			goto err_restore_trace_options;
 
 		/* We want to prevent to begin the acquisition with a cpu in
 		 * idle state because we won't be able later to close the
 		 * state and to determine which state it was. */
 		if (idlestat_wake_all())
-			return 1;
+			goto err_restore_trace_options;
 
 		/* Execute the command or wait a specified delay */
 		if (execute(argc - args, &argv[args], envp, &options))
-			return 1;
+			goto err_restore_trace_options;
 
 		/* Wake up all cpus again to account for last idle state */
 		if (idlestat_wake_all())
-			return 1;
+			goto err_restore_trace_options;
 
 		/* Stop tracing */
 		if (idlestat_trace_enable(false))
-			return 1;
+			goto err_restore_trace_options;
 
 		/* Get ending timestamp */
 		if (get_trace_ts(&end_ts) == -1)
-			return 1;
+			goto err_restore_trace_options;
 
 		/* At this point we should have some spurious wake up
 		 * at the beginning of the traces and at the end (wake
@@ -1682,6 +1686,10 @@ int main(int argc, char *argv[], char *const envp[])
 		 * of other traces and could be negligible. */
 		if (idlestat_store(options.filename, start_ts, end_ts,
 			initp, cpu_topo))
+			goto err_restore_trace_options;
+
+		/* Restore original kernel ftrace options */
+		if (idlestat_restore_trace_options(saved_trace_options))
 			return 1;
 
 		/* Discard topology, will be reloaded during trace load */
@@ -1747,4 +1755,9 @@ int main(int argc, char *argv[], char *const envp[])
 		output_handler->release_report_data(report_data);
 
 	return 0;
+
+ err_restore_trace_options:
+	/* Restore original kernel ftrace options */
+	idlestat_restore_trace_options(saved_trace_options);
+	return 1;
 }

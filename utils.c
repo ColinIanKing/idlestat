@@ -126,6 +126,30 @@ int read_int(const char *path, int *val)
 	return 0;
 }
 
+int read_char(const char *path, char *val)
+{
+	FILE *f;
+	int ret;
+
+	f = fopen(path, "r");
+
+	if (!f) {
+		fprintf(stderr, "failed to open '%s': %m\n", path);
+		return -1;
+	}
+
+	ret = fscanf(f, "%c", val);
+	fclose(f);
+
+	if (ret != 1) {
+		fprintf(stderr,
+			"%s: failed to parse a char\n", path);
+		return -1;
+	}
+
+	return 0;
+}
+
 int store_line(const char *line, void *data)
 {
 	FILE *f = data;
