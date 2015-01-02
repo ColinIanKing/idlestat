@@ -994,7 +994,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":de:f:o:ht:r:cpwVvCB",
+		c = getopt_long(argc, argv, ":b:e:f:o:ht:r:cpwVvCB",
 				long_options, &optindex);
 		if (c == -1)
 			break;
