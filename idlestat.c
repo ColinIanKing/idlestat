@@ -964,23 +964,26 @@ static void version(const char *cmd)
 
 int getoptions(int argc, char *argv[], struct program_options *options)
 {
+	/* Keep options sorted alphabetically and make sure the short options
+	 * are also added to the getopt_long call below
+	 */
 	struct option long_options[] = {
 		{ "trace",       no_argument,       &options->mode, TRACE },
 		{ "import",      no_argument,       &options->mode, IMPORT },
-		{ "trace-file",  required_argument, NULL, 'f' },
 		{ "baseline-trace", required_argument, NULL, 'b' },
-		{ "output-file", required_argument, NULL, 'o' },
-		{ "help",        no_argument,       NULL, 'h' },
-		{ "duration",    required_argument, NULL, 't' },
-		{ "version",     no_argument,       NULL, 'V' },
-		{ "verbose",     no_argument,       NULL, 'v' },
 		{ "idle",        no_argument,       NULL, 'c' },
-		{ "frequency",   no_argument,       NULL, 'p' },
-		{ "wakeup",      no_argument,       NULL, 'w' },
 		{ "energy-model-file",  required_argument, NULL, 'e' },
+		{ "trace-file",  required_argument, NULL, 'f' },
+		{ "help",        no_argument,       NULL, 'h' },
+		{ "output-file", required_argument, NULL, 'o' },
+		{ "frequency",   no_argument,       NULL, 'p' },
 		{ "report-format", required_argument, NULL, 'r' },
-		{ "csv-report",  no_argument,       NULL, 'C' },
+		{ "duration",    required_argument, NULL, 't' },
+		{ "verbose",     no_argument,       NULL, 'v' },
+		{ "wakeup",      no_argument,       NULL, 'w' },
 		{ "boxless-report", no_argument,    NULL, 'B' },
+		{ "csv-report",  no_argument,       NULL, 'C' },
+		{ "version",     no_argument,       NULL, 'V' },
 		{ 0, 0, 0, 0 }
 	};
 	int c;
@@ -994,7 +997,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":b:e:f:o:ht:r:cpwVvCB",
+		c = getopt_long(argc, argv, ":b:ce:f:ho:pr:t:vwBCV",
 				long_options, &optindex);
 		if (c == -1)
 			break;
