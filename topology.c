@@ -74,7 +74,7 @@ struct list_head *check_pos_from_head(struct list_head *head, int id)
 			break;
 	}
 
-	return tmp->prev;
+	return tmp;
 }
 
 int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
@@ -98,7 +98,7 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 
 		ptr = check_pos_from_head(&topo_list->physical_head,
 						s_phy->physical_id);
-		list_add(&s_phy->list_physical, ptr);
+		list_add_tail(&s_phy->list_physical, ptr);
 		topo_list->physical_num++;
 	} else {
 		s_phy = list_entry(ptr, struct cpu_physical,
@@ -119,7 +119,7 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 
 		ptr = check_pos_from_head(&s_phy->core_head,
 						s_core->core_id);
-		list_add(&s_core->list_core, ptr);
+		list_add_tail(&s_core->list_core, ptr);
 		s_phy->core_num++;
 
 	} else {
@@ -136,7 +136,7 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 		s_cpu->cpu_id = info->cpu_id;
 
 		ptr = check_pos_from_head(&s_core->cpu_head, s_cpu->cpu_id);
-		list_add(&s_cpu->list_cpu, ptr);
+		list_add_tail(&s_cpu->list_cpu, ptr);
 		s_core->cpu_num++;
 		if (s_core->cpu_num > 1)
 			s_core->is_ht = true;
