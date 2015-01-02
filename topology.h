@@ -36,6 +36,7 @@ struct report_ops;
 struct cpu_cpu {
 	struct list_head list_cpu;
 	int cpu_id;
+	struct list_head list_phy_enum;
 	struct cpuidle_cstates *cstates;
 	struct cpufreq_pstates *pstates;
 	struct cpuidle_cstates *base_cstates;
@@ -56,6 +57,7 @@ struct cpu_physical {
 	int physical_id;
 	struct list_head core_head;
 	int core_num;
+	struct list_head cpu_enum_head;
 	struct cpuidle_cstates *cstates;
 };
 
@@ -76,5 +78,34 @@ extern int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*d
 extern struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core);
 extern struct cpuidle_cstates *
 	physical_cluster_data(struct cpu_physical *s_phy);
+
+extern struct cpu_physical *cpu_to_cluster(int cpuid, struct cpu_topology *topo);
+extern struct cpu_core *cpu_to_core(int cpuid, struct cpu_topology *topo);
+
+#define core_for_each_cpu(cpu, core)				\
+	list_for_each_entry(cpu, &core->cpu_head, list_cpu)
+
+#define cluster_for_each_core(core, clust)			\
+	list_for_each_entry(core, &clust->core_head, list_core)
+
+#define cluster_for_each_cpu(cpu, clust)			\
+	list_for_each_entry(cpu, &clust->cpu_enum_head, list_phy_enum)
+
+#define topo_for_each_cluster(clust, topo)			\
+	list_for_each_entry(clust, &topo->physical_head, list_physical)
+
+extern int cluster_get_least_cstate(struct cpu_physical *clust);
+extern int cluster_get_highest_freq(struct cpu_physical *clust);
+#define get_affected_cluster_least_cstate(cpuid, topo)		\
+	cluster_get_least_cstate(cpu_to_cluster(cpuid, topo))
+#define get_affected_cluster_highest_freq(cpuid, topo)		\
+	cluster_get_highest_freq(cpu_to_cluster(cpuid, topo))
+
+extern int core_get_least_cstate(struct cpu_core *core);
+extern int core_get_highest_freq(struct cpu_core *core);
+#define get_affected_core_least_cstate(cpuid, topo)		\
+	core_get_least_cstate(cpu_to_core(cpuid, topo))
+#define get_affected_core_highest_freq(cpuid, topo)		\
+	core_get_highest_freq(cpu_to_core(cpuid, topo))
 
 #endif

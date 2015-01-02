@@ -95,14 +95,14 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 		s_phy->core_num = 0;
 		s_phy->physical_id = info->physical_id;
 		INIT_LIST_HEAD(&s_phy->core_head);
+		INIT_LIST_HEAD(&s_phy->cpu_enum_head);
 
 		ptr = check_pos_from_head(&topo_list->physical_head,
 						s_phy->physical_id);
 		list_add_tail(&s_phy->list_physical, ptr);
 		topo_list->physical_num++;
 	} else {
-		s_phy = list_entry(ptr, struct cpu_physical,
-						list_physical);
+		s_phy = list_entry(ptr, struct cpu_physical, list_physical);
 	}
 
 	/* add cpu core info */
@@ -117,8 +117,7 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 		s_core->core_id = info->core_id;
 		INIT_LIST_HEAD(&s_core->cpu_head);
 
-		ptr = check_pos_from_head(&s_phy->core_head,
-						s_core->core_id);
+		ptr = check_pos_from_head(&s_phy->core_head, s_core->core_id);
 		list_add_tail(&s_core->list_core, ptr);
 		s_phy->core_num++;
 
@@ -127,22 +126,54 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 	}
 
 	/* add cpu info */
-	ptr = check_exist_from_head(&s_core->cpu_head, info->cpu_id);
-	if (!ptr) {
-		s_cpu = calloc(sizeof(struct cpu_cpu), 1);
-		if (!s_cpu)
-			return -1;
+	if (check_exist_from_head(&s_core->cpu_head, info->cpu_id) != NULL)
+		return 0;
 
-		s_cpu->cpu_id = info->cpu_id;
+	s_cpu = calloc(sizeof(struct cpu_cpu), 1);
+	if (!s_cpu)
+		return -1;
 
-		ptr = check_pos_from_head(&s_core->cpu_head, s_cpu->cpu_id);
-		list_add_tail(&s_cpu->list_cpu, ptr);
-		s_core->cpu_num++;
-		if (s_core->cpu_num > 1)
-			s_core->is_ht = true;
-	}
+	s_cpu->cpu_id = info->cpu_id;
+
+	ptr = check_pos_from_head(&s_core->cpu_head, s_cpu->cpu_id);
+	list_add_tail(&s_cpu->list_cpu, ptr);
+	s_core->cpu_num++;
+	if (s_core->cpu_num > 1)
+		s_core->is_ht = true;
+
+	/* Assumption: Same cpuid cannot exist in 2 different cores */
+	assert(!check_exist_from_head(&s_phy->cpu_enum_head, info->cpu_id));
+
+	/* Add to the list (really a set) of all contained cpus in s_phy */
+	list_add_tail(&s_cpu->list_phy_enum, &s_phy->cpu_enum_head);
 
 	return 0;
+}
+
+struct cpu_physical *cpu_to_cluster(int cpuid, struct cpu_topology *topo)
+{
+	struct cpu_physical *phy;
+	struct cpu_cpu *cpu;
+
+	topo_for_each_cluster(phy, topo)
+		cluster_for_each_cpu(cpu, phy)
+			if (cpu->cpu_id == cpuid)
+				return phy;
+	return NULL;
+}
+
+struct cpu_core *cpu_to_core(int cpuid, struct cpu_topology *topo)
+{
+	struct cpu_physical *phy;
+	struct cpu_core *core;
+	struct cpu_cpu *cpu;
+
+	topo_for_each_cluster(phy, topo)
+		cluster_for_each_core(core, phy)
+			core_for_each_cpu(cpu, core)
+				if (cpu->cpu_id == cpuid)
+					return core;
+	return NULL;
 }
 
 void free_cpu_cpu_list(struct list_head *head)
@@ -151,6 +182,7 @@ void free_cpu_cpu_list(struct list_head *head)
 
 	list_for_each_entry_safe(lcpu, n, head, list_cpu) {
 		list_del(&lcpu->list_cpu);
+		list_del(&lcpu->list_phy_enum);
 		free(lcpu);
 	}
 }
@@ -558,4 +590,78 @@ int release_cpu_topo_cstates(struct cpu_topology *topo)
 	}
 
 	return 0;
+}
+
+int cluster_get_least_cstate(struct cpu_physical *clust)
+{
+	struct cpu_cpu *cpu;
+	int cpu_cstate;
+	int ret = MAXCSTATE;
+
+	cluster_for_each_cpu(cpu, clust) {
+		cpu_cstate = cpu->cstates->current_cstate;
+		if (cpu_cstate < ret)
+			ret = cpu_cstate;
+	}
+	return ret;
+}
+
+int cluster_get_highest_freq(struct cpu_physical *clust)
+{
+	struct cpu_cpu *cpu;
+	int cpu_pstate_index;
+	unsigned int cpu_freq;
+	unsigned int ret = ~0;
+
+	cluster_for_each_cpu(cpu, clust) {
+		cpu_pstate_index = cpu->pstates->current;
+		if (cpu_pstate_index < 0)
+			continue;
+		cpu_freq = cpu->pstates->pstate[cpu_pstate_index].freq;
+		if (cpu_freq < ret)
+			ret = cpu_freq;
+	}
+
+	/* It is possible we don't know anything near the start of trace */
+	if (ret == ~0)
+		ret = 0;
+
+	return ret;
+}
+
+int core_get_least_cstate(struct cpu_core *core)
+{
+	struct cpu_cpu *cpu;
+	int cpu_cstate;
+	int ret = MAXCSTATE;
+
+	core_for_each_cpu(cpu, core) {
+		cpu_cstate = cpu->cstates->current_cstate;
+		if (cpu_cstate < ret)
+			ret = cpu_cstate;
+	}
+	return ret;
+}
+
+int core_get_highest_freq(struct cpu_core *core)
+{
+	struct cpu_cpu *cpu;
+	int cpu_pstate_index;
+	unsigned int cpu_freq;
+	unsigned int ret = ~0;
+
+	core_for_each_cpu(cpu, core) {
+		cpu_pstate_index = cpu->pstates->current;
+		if (cpu_pstate_index < 0)
+			continue;
+		cpu_freq = cpu->pstates->pstate[cpu_pstate_index].freq;
+		if (cpu_freq < ret)
+			ret = cpu_freq;
+	}
+
+	/* It is possible we don't know anything near the start of trace */
+	if (ret == ~0)
+		ret = 0;
+
+	return ret;
 }
