@@ -947,12 +947,18 @@ static void help(const char *cmd)
 		" results:\n\tsudo ./%s --trace -f /tmp/mytrace -t 10 -p -c -w -- rt-app /tmp/mp3.json\n",
 		basename(cmd));
 	fprintf(stderr,
-		"\n4. Post-process a trace captured earlier:\n\tsudo ./%s"
+		"\n4. Post-process a trace captured earlier:\n\t./%s"
 		" --import -f /tmp/mytrace\n", basename(cmd));
 	fprintf(stderr,
 		"\n5. Run a trace, post-process the results and print all"
 		" statistics into a file:\n\tsudo ./%s --trace -f /tmp/mytrace -t 10 -p -c -w"
 		" -o /tmp/myreport\n", basename(cmd));
+	fprintf(stderr,
+		"\n6. Run a comparison trace, say, before and after making changes to system behaviour\n"
+		"\tsudo ./%s --trace -f /tmp/baseline -t 10\n"
+		"\tsudo ./%s --trace -f /tmp/changedstate -t 10\n"
+		"\t./%s --import -f /tmp/changedstate -b /tmp/baseline -r comparison\n",
+		basename(cmd), basename(cmd), basename(cmd));
 	fprintf(stderr, "\nReport formats supported:");
 	list_report_formats_to_stderr();
 }
