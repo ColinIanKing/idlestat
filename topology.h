@@ -50,6 +50,7 @@ struct cpu_core {
 	int cpu_num;
 	bool is_ht;
 	struct cpuidle_cstates *cstates;
+	struct cpuidle_cstates *base_cstates;
 };
 
 struct cpu_physical {
@@ -59,6 +60,7 @@ struct cpu_physical {
 	int core_num;
 	struct list_head cpu_enum_head;
 	struct cpuidle_cstates *cstates;
+	struct cpuidle_cstates *base_cstates;
 };
 
 struct cpu_topology {
@@ -71,7 +73,7 @@ extern struct cpu_topology *read_cpu_topo_info(FILE *f, char *buf);
 extern struct cpu_topology *read_sysfs_cpu_topo(void);
 extern int release_cpu_topo_info(struct cpu_topology *topo);
 extern int output_cpu_topo_info(struct cpu_topology *topo, FILE *f);
-extern int establish_idledata_to_topo(struct cpuidle_datas *datas);
+extern void assign_baseline_in_topo(struct cpuidle_datas *datas);
 extern int release_cpu_topo_cstates(struct cpu_topology *topo);
 extern int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, void *, char *, void *), struct cpu_topology *topo, int cstate);
 

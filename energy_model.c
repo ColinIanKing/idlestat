@@ -40,7 +40,6 @@ static int make_energy_model_template(struct program_options *options)
 		return -1;
 	}
 	cpu_topo = datas->topo;
-	establish_idledata_to_topo(datas);
 
 	list_for_each_entry(s_phy, &cpu_topo->physical_head, list_physical)
 		cluster_count++;

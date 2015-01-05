@@ -780,7 +780,7 @@ static int cstate_begin(double time, int state, struct cpuidle_cstates *cstates)
 	return 0;
 }
 
-static int cstate_end(double time, struct cpuidle_cstates *cstates)
+static void cstate_end(double time, struct cpuidle_cstates *cstates)
 {
 	int last_cstate = cstates->current_cstate;
 	struct cpuidle_cstate *cstate = &cstates->cstate[last_cstate];
@@ -824,8 +824,23 @@ static int cstate_end(double time, struct cpuidle_cstates *cstates)
 
 	/* CPU is no longer idle */
 	cstates->current_cstate = -1;
+}
 
-	return 0;
+int record_cstate_event(struct cpuidle_cstates *cstates,
+		       double time, int state)
+{
+	int ret = 0;
+
+	/* Ignore when we enter the current state (cores and clusters) */
+	if (state == cstates->current_cstate)
+		return 0;
+
+	if (cstates->current_cstate != -1)
+		cstate_end(time, cstates);
+	if (state != -1)
+		ret = cstate_begin(time, state, cstates);
+
+	return ret;
 }
 
 int store_data(double time, int state, int cpu,
@@ -833,25 +848,30 @@ int store_data(double time, int state, int cpu,
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
 	struct cpufreq_pstate *pstate = datas->pstates[cpu].pstate;
-	int ret;
+	struct cpu_core *aff_core;
+	struct cpu_physical *aff_cluster;
 
 	/* ignore when we got a "closing" state first */
 	if (state == -1 && cstates->cstate_max == -1)
 		return 0;
 
-	if (state == -1) {
-		ret = cstate_end(time, cstates);
-		/* update P-state stats if supported */
-		if (!ret && pstate)
+	if (record_cstate_event(cstates, time, state) == -1)
+		return -1;
+
+	/* Update P-state stats if supported */
+	if (pstate) {
+		if (state == -1)
 			cpu_pstate_running(datas, cpu, time);
-	} else {
-		ret = cstate_begin(time, state, cstates);
-		/* update P-state stats if supported */
-		if (!ret && pstate)
+		else
 			cpu_pstate_idle(datas, cpu, time);
 	}
 
-	return ret;
+	/* Update core and cluster */
+	aff_core = cpu_to_core(cpu, datas->topo);
+	if (record_cstate_event(aff_core->cstates, time, state) == -1)
+		return -1;
+	aff_cluster = cpu_to_cluster(cpu, datas->topo);
+	return record_cstate_event(aff_cluster->cstates, time,state);
 }
 
 static void release_datas(struct cpuidle_datas *datas)
@@ -1635,6 +1655,8 @@ int main(int argc, char *argv[], char *const envp[])
 	if (is_err(datas))
 		return 1;
 
+	cpu_topo = datas->topo;
+
 	if (options.baseline_filename) {
 		baseline = idlestat_load(options.baseline_filename);
 		merge_pstates(datas, baseline);
@@ -1646,38 +1668,36 @@ int main(int argc, char *argv[], char *const envp[])
 		return 1;
 
 	datas->baseline = baseline;
-	cpu_topo = datas->topo;
+	assign_baseline_in_topo(datas);
 
-	/* Compute cluster idle intersection between cpus belonging to
-	 * the same cluster
-	 */
-	if (0 == establish_idledata_to_topo(datas)) {
-		if (output_handler->open_report_file(options.outfilename, report_data))
-			return 1;
+	if (output_handler->open_report_file(options.outfilename, report_data))
+		return 1;
 
-		if (options.display & IDLE_DISPLAY) {
-			output_handler->cstate_table_header(report_data);
-			dump_cpu_topo_info(output_handler, report_data, display_cstates, cpu_topo, 1);
-			output_handler->cstate_table_footer(report_data);
-		}
-
-		if (options.display & FREQUENCY_DISPLAY) {
-			output_handler->pstate_table_header(report_data);
-			dump_cpu_topo_info(output_handler, report_data, display_pstates, cpu_topo, 0);
-			output_handler->pstate_table_footer(report_data);
-		}
-
-		if (options.display & WAKEUP_DISPLAY) {
-			output_handler->wakeup_table_header(report_data);
-			dump_cpu_topo_info(output_handler, report_data, display_wakeup, cpu_topo, 1);
-			output_handler->wakeup_table_footer(report_data);
-		}
-
-		if (options.energy_model_filename)
-			calculate_energy_consumption(cpu_topo, &options);
-
-		output_handler->close_report_file(report_data);
+	if (options.display & IDLE_DISPLAY) {
+		output_handler->cstate_table_header(report_data);
+		dump_cpu_topo_info(output_handler, report_data,
+				display_cstates, cpu_topo, 1);
+		output_handler->cstate_table_footer(report_data);
 	}
+
+	if (options.display & FREQUENCY_DISPLAY) {
+		output_handler->pstate_table_header(report_data);
+		dump_cpu_topo_info(output_handler, report_data,
+				display_pstates, cpu_topo, 0);
+		output_handler->pstate_table_footer(report_data);
+	}
+
+	if (options.display & WAKEUP_DISPLAY) {
+		output_handler->wakeup_table_header(report_data);
+		dump_cpu_topo_info(output_handler, report_data,
+				display_wakeup, cpu_topo, 1);
+		output_handler->wakeup_table_footer(report_data);
+	}
+
+	if (options.energy_model_filename)
+		calculate_energy_consumption(cpu_topo, &options);
+
+	output_handler->close_report_file(report_data);
 
 	release_init_pstates(initp);
 	release_datas(datas);

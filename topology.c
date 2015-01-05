@@ -475,62 +475,58 @@ int output_cpu_topo_info(struct cpu_topology *topo, FILE *f)
 	return 0;
 }
 
-int establish_idledata_to_topo(struct cpuidle_datas *datas)
+void assign_baseline_in_topo(struct cpuidle_datas *datas)
 {
-	struct cpu_physical *s_phy;
-	struct cpu_core     *s_core;
-	struct cpu_cpu      *s_cpu;
-	int    i;
-	int    has_topo = 0;
+	struct cpu_physical *main_phy;
+	struct cpu_core     *main_core;
+	struct cpu_cpu      *main_cpu;
+	struct cpu_physical *base_phy;
+	struct cpu_core     *base_core;
+	struct cpu_cpu      *base_cpu;
 	struct cpu_topology *topo;
+	struct cpu_topology *base_topo;
 	struct cpuidle_datas *baseline;
 
 	assert(datas != NULL);
+
+	baseline = datas->baseline;
+	if (!baseline)
+		return;
+
 	topo = datas->topo;
+	base_topo = baseline->topo;
 	assert(topo != NULL);
+	assert(base_topo != NULL);
 
-	if (datas->baseline)
-		baseline = datas->baseline;
-	else
-		baseline = NULL;
+	/* Cluster loop */
+	base_phy = list_first_entry(&base_topo->physical_head,
+				struct cpu_physical, list_physical);
+	topo_for_each_cluster(main_phy, topo) {
+		main_phy->base_cstates = base_phy->cstates;
+		/* Core loop */
+		base_core = list_first_entry(&base_phy->core_head,
+					struct cpu_core, list_core);
+		cluster_for_each_core(main_core, main_phy) {
+			main_core->base_cstates = base_core->cstates;
+			/* Cpu loop */
+			base_cpu = list_first_entry(&base_core->cpu_head,
+					struct cpu_cpu, list_cpu);
+			core_for_each_cpu(main_cpu, main_core) {
+				main_cpu->base_cstates = base_cpu->cstates;
+				main_cpu->base_pstates = base_cpu->pstates;
 
-	for (i = 0; i < datas->nrcpus; i++) {
-		s_cpu = find_cpu_point(topo, i);
-		if (s_cpu) {
-			s_cpu->cstates = &datas->cstates[i];
-			s_cpu->pstates = &datas->pstates[i];
-			has_topo = 1;
-			if (baseline) {
-				s_cpu->base_cstates = baseline->cstates + i;
-				s_cpu->base_pstates = baseline->pstates + i;
+				/* Step to next baseline cpu */
+				base_cpu = list_first_entry(&base_cpu->list_cpu,
+						struct cpu_cpu, list_cpu);
 			}
+			/* Step to next baseline core */
+			base_core = list_first_entry(&base_core->list_core,
+						struct cpu_core, list_core);
 		}
+		/* Step to next baseline cluster */
+		base_phy = list_first_entry(&base_phy->list_physical,
+				struct cpu_physical, list_physical);
 	}
-
-	if (!has_topo)
-		return -1;
-
-	list_for_each_entry(s_phy, &topo->physical_head,
-			    list_physical) {
-		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
-			s_core->cstates = core_cluster_data(s_core);
-			if (is_err(s_core->cstates)) {
-				s_core->cstates = NULL;
-				return -1;
-			}
-		}
-	}
-
-	list_for_each_entry(s_phy, &topo->physical_head,
-			    list_physical) {
-		s_phy->cstates = physical_cluster_data(s_phy);
-		if (is_err(s_phy->cstates)) {
-			s_phy->cstates = NULL;
-			return -1;
-		}
-	}
-
-	return 0;
 }
 
 int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, void *, char *, void *), struct cpu_topology *topo, int cstate)
@@ -546,13 +542,14 @@ int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(st
 		sprintf(tmp, "cluster%c", s_phy->physical_id + 'A');
 
 		if (cstate)
-			dump(ops, s_phy->cstates, NULL, tmp, report_data);
+			dump(ops, s_phy->cstates, s_phy->base_cstates,
+				tmp, report_data);
 
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
 			if (s_core->is_ht && cstate) {
 				sprintf(tmp, "core%d", s_core->core_id);
 				dump(ops, s_core->cstates,
-					NULL,
+					s_core->base_cstates,
 					tmp, report_data);
 			}
 

@@ -133,6 +133,8 @@ void load_text_data_lines(FILE *f, char *buffer, struct cpuidle_datas *datas)
 	double begin = 0, end = 0;
 	size_t count = 0, start = 1;
 
+	setup_topo_states(datas);
+
 	do {
 		load_text_data_line(buffer, datas, TRACE_FORMAT, &begin, &end, &count, &start);
 	} while (fgets(buffer, BUFSIZE, f));
