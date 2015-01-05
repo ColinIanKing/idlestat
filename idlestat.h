@@ -63,7 +63,6 @@ struct cpuidle_cstate {
 	double min_time;
 	double duration;
 	int target_residency; /* -1 if not available */
-	int inter_result; /* 1 if created by a call to inter() */
 };
 
 struct wakeup_irq {
