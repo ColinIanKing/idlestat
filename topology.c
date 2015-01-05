@@ -36,6 +36,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <assert.h>
+#include <values.h>
 
 #include "list.h"
 #include "utils.h"
@@ -664,4 +665,161 @@ int core_get_highest_freq(struct cpu_core *core)
 		ret = 0;
 
 	return ret;
+}
+
+/**
+ * create_states - Helper for allocating cpuidle_cstates and copying names
+ *
+ * This function allocates a struct cpuidle_cstates for recording state
+ * statistics for a core or a cluster. The c-state information (e.g. names)
+ * is copied from an existing array of struct cpuidle_cstate[MAXCSTATE]
+ * pointed to by @s_state.
+ *
+ * In case of any error, this function will print an error message to
+ * stderr before returning value from ptrerror().
+ *
+ * @s_state: Pointer to first element in an array of struct cpuidle_cstate
+ * @return: Pointer to the created structure or ptrerror()
+ */
+static struct cpuidle_cstates *create_states(struct cpuidle_cstate *s_state)
+{
+	struct cpuidle_cstates *result;
+	struct cpuidle_cstate *d_state;
+	int i;
+
+	result = calloc(1, sizeof(*result));
+	if (!result)
+		return ptrerror(__func__);
+
+	result->cstate_max = -1;
+	result->current_cstate = -1;
+
+	/* Copy state information */
+	d_state = result->cstate;
+	for (i = 0; i <= MAXCSTATE; ++d_state, ++s_state, ++i) {
+		if (s_state->name == NULL)
+			continue;
+
+		d_state->min_time = DBL_MAX;
+		d_state->target_residency = s_state->target_residency;
+		d_state->name = strdup(s_state->name);
+
+		if (!d_state->name) {
+			release_cstate_info(result, 1);
+			return ptrerror(__func__);
+		}
+	}
+
+	return result;
+}
+
+
+/**
+ * create_core_states - Create c-state data structure for a core
+ *
+ * This function allocates a struct cpuidle_cstates for recording state
+ * statistics for @s_core. The c-state information (e.g. names) is copied
+ * from the first cpu within the core. The cpu topology mapping must have
+ * been established before calling this function.
+ *
+ * The case where there are no cpus in the core is considered an internal
+ * error.
+ *
+ * In case of any error, this function will print an error message to
+ * stderr before returning value from ptrerror().
+ *
+ * @s_core: The core that the structure is allocated for
+ * @return: Pointer to the created structure or ptrerror()
+ */
+static struct cpuidle_cstates *create_core_states(struct cpu_core *s_core)
+{
+	struct cpu_cpu *origin_cpu = NULL;
+	struct cpuidle_cstate *first_s_state;
+
+	assert(s_core != NULL);
+	assert(!list_empty(&s_core->cpu_head));
+
+	/* Copy state names from the first cpu */
+	origin_cpu = list_first_entry(&s_core->cpu_head, struct cpu_cpu,
+			list_cpu);
+	first_s_state = origin_cpu->cstates->cstate;
+
+	return create_states(first_s_state);
+}
+
+/**
+ * create_cluster_states - Create c-state data structure for a cluster
+ *
+ * This function allocates a struct cpuidle_cstates for recording state
+ * statistics for @s_phy. The c-state information (e.g. names) is copied
+ * from the first core within the cluster. The core states must have
+ * been established before calling this function.
+ *
+ * The case where there are no cores in the cluster is considered an internal
+ * error.
+ *
+ * In case of any error, this function will print an error message to
+ * stderr before returning value from ptrerror().
+ *
+ * @s_phy: The cluster that the structure is allocated for
+ * @return: Pointer to the created structure or ptrerror()
+ */
+static struct cpuidle_cstates *create_cluster_states(struct cpu_physical *s_phy)
+{
+	struct cpu_core *origin_core = NULL;
+	struct cpuidle_cstate *first_s_state;
+
+	assert(s_phy != NULL);
+	assert(!list_empty(&s_phy->core_head));
+
+	/* Copy state names from the first cpu */
+	origin_core = list_first_entry(&s_phy->core_head, struct cpu_core,
+			list_core);
+	first_s_state = origin_core->cstates->cstate;
+
+	return create_states(first_s_state);
+}
+
+int setup_topo_states(struct cpuidle_datas *datas)
+{
+	struct cpu_physical *s_phy;
+	struct cpu_core     *s_core;
+	struct cpu_cpu      *s_cpu;
+	int    i;
+	struct cpu_topology *topo;
+
+	assert(datas != NULL);
+	topo = datas->topo;
+	assert(topo != NULL);
+
+	/* Map cpu state arrays into topology structures */
+	for (i = 0; i < datas->nrcpus; i++) {
+		s_cpu = find_cpu_point(topo, i);
+		if (s_cpu) {
+			s_cpu->cstates = &datas->cstates[i];
+			s_cpu->pstates = &datas->pstates[i];
+		} else {
+			fprintf(stderr,
+				"Warning: Cannot map cpu %d into topology\n",
+				i);
+		}
+	}
+
+	/* Create cluster-level and core-level state structures */
+	topo_for_each_cluster(s_phy, topo) {
+		cluster_for_each_core(s_core, s_phy) {
+			s_core->cstates = create_core_states(s_core);
+			if (is_err(s_core->cstates)) {
+				s_core->cstates = NULL;
+				return -1;
+			}
+		}
+		s_phy->cstates = create_cluster_states(s_phy);
+		if (is_err(s_phy->cstates)) {
+			s_phy->cstates = NULL;
+			return -1;
+		}
+	}
+
+	return 0;
 }

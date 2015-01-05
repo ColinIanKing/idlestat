@@ -108,4 +108,6 @@ extern int core_get_highest_freq(struct cpu_core *core);
 #define get_affected_core_highest_freq(cpuid, topo)		\
 	core_get_highest_freq(cpu_to_core(cpuid, topo))
 
+extern int setup_topo_states(struct cpuidle_datas *datas);
+
 #endif
