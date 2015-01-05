@@ -108,7 +108,7 @@ int load_text_data_line(char *buffer, struct cpuidle_datas *datas, char *format,
 		}
 		*end = time;
 
-		store_data(time, state, cpu, datas, *count);
+		store_data(time, state, cpu, datas);
 		(*count)++;
 		return 0;
 	} else if (strstr(buffer, "cpu_frequency")) {

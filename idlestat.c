@@ -829,7 +829,7 @@ static int cstate_end(double time, struct cpuidle_cstates *cstates)
 }
 
 int store_data(double time, int state, int cpu,
-		struct cpuidle_datas *datas, int count)
+		struct cpuidle_datas *datas)
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
 	struct cpufreq_pstate *pstate = datas->pstates[cpu].pstate;
