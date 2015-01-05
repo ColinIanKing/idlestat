@@ -22,6 +22,7 @@
  * Contributors:
  *     Daniel Lezcano <daniel.lezcano@linaro.org>
  *     Zoran Markovic <zoran.markovic@linaro.org>
+ *     Tuukka Tikkanen <tuukka.tikkanen@linaro.org>
  *
  */
 #ifndef __TOPOLOGY_H

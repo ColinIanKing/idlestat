@@ -22,7 +22,8 @@
  * Contributors:
  *     Daniel Lezcano <daniel.lezcano@linaro.org>
  *     Zoran Markovic <zoran.markovic@linaro.org>
- *
+ *     Koan-Sin Tan <freedom.tan@linaro.org>
+ *     Tuukka Tikkanen <tuukka.tikkanen@linaro.org>
  */
 #define _GNU_SOURCE
 #include <stdio.h>

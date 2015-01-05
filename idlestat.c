@@ -22,6 +22,7 @@
  * Contributors:
  *     Daniel Lezcano <daniel.lezcano@linaro.org>
  *     Zoran Markovic <zoran.markovic@linaro.org>
+ *     Tuukka Tikkanen <tuukka.tikkanen@linaro.org>
  *
  */
 #define _GNU_SOURCE
@@ -47,7 +48,7 @@
 #include "report_ops.h"
 #include "trace_ops.h"
 
-#define IDLESTAT_VERSION "0.4-rc1"
+#define IDLESTAT_VERSION "0.5"
 #define USEC_PER_SEC 1000000
 
 static char buffer[BUFSIZE];
