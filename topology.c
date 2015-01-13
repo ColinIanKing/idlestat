@@ -693,7 +693,7 @@ static struct cpuidle_cstates *create_states(struct cpuidle_cstate *s_state)
 
 	/* Copy state information */
 	d_state = result->cstate;
-	for (i = 0; i <= MAXCSTATE; ++d_state, ++s_state, ++i) {
+	for (i = 0; i < MAXCSTATE; ++d_state, ++s_state, ++i) {
 		if (s_state->name == NULL)
 			continue;
 
