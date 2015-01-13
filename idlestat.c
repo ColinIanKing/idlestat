@@ -900,6 +900,14 @@ struct cpuidle_datas *idlestat_load(const char *filename)
 	const struct trace_ops **ops_it;
 	int ret;
 
+	/*
+	 * The linker places pointers to all entries declared with
+	 * EXPORT_TRACE_OPS into a special segment. This creates
+	 * an array of pointers preceded by trace_ops_head. Let
+	 * the static analysis tool know that we know what we are
+	 * doing.
+	 */
+	/* coverity[array_vs_singleton] */
 	for (ops_it = (&trace_ops_head)+1 ; *ops_it ; ++ops_it) {
 		assert((*ops_it)->name);
 		assert((*ops_it)->check_magic);

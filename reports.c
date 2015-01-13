@@ -34,6 +34,14 @@ void list_report_formats_to_stderr(void)
 {
 	const struct report_ops **ops_it;
 
+	/*
+	 * The linker places pointers to all entries declared with
+	 * EXPORT_REPORT_OPS into a special segment. This creates
+	 * an array of pointers preceded by report_ops_head. Let
+	 * the static analysis tool know that we know what we are
+	 * doing.
+	 */
+	/* coverity[array_vs_singleton] */
 	for (ops_it = (&report_ops_head)+1 ; *ops_it ; ++ops_it)
 		fprintf(stderr, " %s", (*ops_it)->name);
 
