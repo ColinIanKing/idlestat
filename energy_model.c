@@ -141,7 +141,7 @@ int parse_energy_model(struct program_options *options)
 				return -1;
 			}
 			ret = make_energy_model_template(options);
-			exit(ret);
+			exit(ret ? 1 : 0);
 		}
 		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__, path);
 		return -1;
