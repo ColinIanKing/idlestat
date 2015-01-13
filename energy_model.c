@@ -60,7 +60,7 @@ static int make_energy_model_template(struct program_options *options)
 	fprintf(f, "# Replace ? with correct values\n");
 
 	datas = idlestat_load(options->filename);
-	if (!datas) {
+	if (is_err(datas)) {
 		fclose(f);
 		unlink(options->energy_model_filename);
 		return -1;
