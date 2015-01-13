@@ -271,6 +271,7 @@ int cpuidle_get_target_residency(int cpu, int state)
 	char *fpath;
 	unsigned int tr;
 	FILE *snf;
+	int ret;
 
 	if (asprintf(&fpath, CPUIDLE_STATE_TARGETRESIDENCY_PATH_FORMAT,
 				cpu, state) < 0)
@@ -283,10 +284,10 @@ int cpuidle_get_target_residency(int cpu, int state)
 		free(fpath);
 		return -1;
 	}
-	fscanf(snf, "%u", &tr);
+	ret = fscanf(snf, "%u", &tr);
 	fclose(snf);
 
-	return tr;
+	return (ret == 1) ? tr : -1;
 }
 
 /**
