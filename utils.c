@@ -73,6 +73,7 @@ int verbose_printf(int min_level, const char *fmt, ...)
 	if (min_level > verbose_level)
 		return 0;
 
+	va_start(ap, fmt);
 	return vprintf(fmt, ap);
 }
 
@@ -83,6 +84,7 @@ int verbose_fprintf(FILE *f, int min_level, const char *fmt, ...)
 	if (min_level > verbose_level)
 		return 0;
 
+	va_start(ap, fmt);
 	return vfprintf(f, fmt, ap);
 }
 
