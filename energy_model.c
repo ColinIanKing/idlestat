@@ -102,7 +102,7 @@ static int make_energy_model_template(struct program_options *options)
 
 			fprintf(f, "%s\t\t?\t?\n", c->name);
 		}
-		fprintf(f, "\nwakeup\t\t?\t?\n");
+		fprintf(f, "\n");
 		cluster_number++;
 	}
 
@@ -340,31 +340,26 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 	double total_energy = 0.0;
 	double total_cap = 0.0;
 	double total_idl = 0.0;
-	double total_wkp = 0.0;
 
 	/* Per cluster energy breakdown  */
 	double cluster_energy;
 	double cluster_cap;
 	double cluster_idl;
-	double cluster_wkp;
 
 	int i, j;
 	unsigned int current_cluster;
 	struct cstate_energy_info *cp;
 	struct pstate_energy_info *pp;
-	struct cluster_energy_info *clustp;
 
 	/* Contributions are computed per cluster */
 
 	list_for_each_entry(s_phy, &cpu_topo->physical_head,
 			    list_physical) {
 		current_cluster = s_phy->physical_id;
-		clustp = cluster_energy_table + current_cluster;
 
 		cluster_energy = 0.0;
 		cluster_cap = 0.0;
 		cluster_idl = 0.0;
-		cluster_wkp = 0.0;
 
 		verbose_fprintf(stderr, 1, "\n\nCluster%c%37s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
 				'A' + current_cluster, "", "[us] Duration", "Power", "Energy", "E_cap", "E_idle", "E_wkup");
@@ -387,19 +382,6 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 				continue;
 			}
 
-			/* Cluster wakeup energy: defined just for wakeups from C1 */
-			if (strcmp(c->name, "C1") == 0) {
-
-				cluster_wkp += c->nrdata * clustp->wakeup_energy.cluster_wakeup_energy;
-
-				verbose_fprintf(stderr, 1, "      C%-2d +%7d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
-					j, c->nrdata, c->name,
-					"", "",
-					clustp->wakeup_energy.cluster_wakeup_energy,
-					"", "",
-					cluster_wkp);
-			}
-
 			cluster_idl += c->duration * cp->cluster_idle_power;
 
 			verbose_fprintf(stderr, 1, "      C%-2d +%7d hits for [%15s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
@@ -410,9 +392,6 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 					cluster_idl,
 					"");
 		}
-
-		/* Add current cluster wakeup energy contribution */
-		/* This assumes that cluster wakeup hits equal the number of cluster C-States enter */
 
 		/* All C-States and P-States for the CPUs on current cluster */
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
@@ -445,19 +424,6 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 							"", "",
 							cluster_idl,
 							"");
-
-					/* CPU wakeup energy: defined just for wakeups from WFI (on filtered trace) */
-					if (strcmp(c->name, "WFI") == 0) {
-
-						cluster_wkp += c->nrdata * clustp->wakeup_energy.core_wakeup_energy;
-
-						verbose_fprintf(stderr, 1, "Cpu%d  C%-2d +%6d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
-								s_cpu->cpu_id, i, c->nrdata, c->name,
-								"", "",
-								clustp->wakeup_energy.core_wakeup_energy,
-								"", "",
-								cluster_idl);
-					}
 				}
 
 				/* All P-States of current CPU */
@@ -517,21 +483,6 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 					"", "");
 		}
 
-		/* The scheduler model is normalized to a wake-up rate of 1000 wake-ups per
-		 * second. Thus this conversion is required:
-		 *
-		 * idlestat_wakeup_energy = sched_wakeup_energy * 47742 / (1000 * 1024)
-		 *
-		 * where:
-		 * - 47742: Removes wake-up tracking pre-scaling.
-		 * -  1024: Removes << 10
-		 * -  1000: Single wake-up instead of 1000/s.
-		 */
-		cluster_wkp *= 47742;
-		cluster_wkp /= (1024 * 1000);
-
-		printf("\n");
-
 		verbose_fprintf(stderr, 1, "\n\nCluster%c%29s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
 				'A' + current_cluster, "", "[us] Duration", "Power", "Energy", "E_cap", "E_idle", "E_wkup");
 
@@ -548,11 +499,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 				'A' + current_cluster, cluster_idl, cluster_idl);
 		total_idl += cluster_idl;
 
-		printf("Cluster%c Energy Wkps  %14.0f (%e)\n",
-				'A' + current_cluster, cluster_wkp, cluster_wkp);
-		total_wkp += cluster_wkp;
-
-		cluster_energy = cluster_cap + cluster_idl + cluster_wkp;
+		cluster_energy = cluster_cap + cluster_idl;
 		total_energy += cluster_energy;
 
 		printf("Cluster%c Energy Index %14.0f (%e)\n",
