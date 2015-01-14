@@ -166,7 +166,7 @@ int parse_energy_model(struct program_options *options)
 				clusters_in_energy_file);
 			continue;
 		}
-		if (strstr(buffer, "cluster")) {
+		if (strstr(buffer, "cluster") && !strstr(buffer, "cluster-")) {
 			sscanf(buffer, "cluster%c: %d cap states %d C states", &tmp,
 				&number_cap_states, &number_c_states);
 			current_cluster = tmp - 'A';
@@ -366,7 +366,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 		cluster_idl = 0.0;
 		cluster_wkp = 0.0;
 
-		verbose_fprintf(stderr, 1, "\n\nCluster%c%29s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
+		verbose_fprintf(stderr, 1, "\n\nCluster%c%37s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
 				'A' + current_cluster, "", "[us] Duration", "Power", "Energy", "E_cap", "E_idle", "E_wkup");
 
 		/* All C-States on current cluster */
@@ -402,7 +402,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 
 			cluster_idl += c->duration * cp->cluster_idle_power;
 
-			verbose_fprintf(stderr, 1, "      C%-2d +%7d hits for [%7s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
+			verbose_fprintf(stderr, 1, "      C%-2d +%7d hits for [%15s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
 					j, c->nrdata, c->name,
 					c->duration,
 					cp->cluster_idle_power,
@@ -438,7 +438,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 					}
 					cluster_idl += c->duration * cp->core_idle_power;
 
-					verbose_fprintf(stderr, 1, "Cpu%d  C%-2d +%7d hits for [%7s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
+					verbose_fprintf(stderr, 1, "Cpu%d  C%-2d +%7d hits for [%15s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
 							s_cpu->cpu_id, i, c->nrdata, c->name,
 							c->duration,
 							cp->core_idle_power,
@@ -482,7 +482,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 
 					cluster_cap += p->duration * pp->core_power;
 
-					verbose_fprintf(stderr, 1, "Cpu%d  P%-2d +%7d hits for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
+					verbose_fprintf(stderr, 1, "Cpu%d  P%-2d +%7d hits for [%15d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
 							s_cpu->cpu_id, i, p->count, p->freq/1000,
 							p->duration, pp->core_power,
 							"",
@@ -508,7 +508,7 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 			}
 
 			cluster_cap += p->duration * pp->cluster_power;
-			verbose_fprintf(stderr, 1, "Freq %7u kHz cap estimate for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
+			verbose_fprintf(stderr, 1, "       Pxx Freq %7u kHz [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
 					pp->speed,
 					p->duration,
 					pp->cluster_power,
