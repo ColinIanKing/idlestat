@@ -763,9 +763,11 @@ int store_data(double time, int state, int cpu,
 
 	/* Update core and cluster */
 	aff_core = cpu_to_core(cpu, datas->topo);
+	state = core_get_least_cstate(aff_core);
 	if (record_cstate_event(aff_core->cstates, time, state) == -1)
 		return -1;
 	aff_cluster = cpu_to_cluster(cpu, datas->topo);
+	state = cluster_get_least_cstate(aff_cluster);
 	return record_cstate_event(aff_cluster->cstates, time,state);
 }
 
