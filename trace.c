@@ -36,6 +36,7 @@
 #include <fts.h>
 
 #include "trace.h"
+#include "idlestat.h"
 #include "utils.h"
 #include "list.h"
 
@@ -163,9 +164,13 @@ cannot_get_event_options:
 	return ptrerror(NULL);
 }
 
-int idlestat_init_trace(unsigned int duration)
+int calculate_buffer_parameters(unsigned int duration,
+				struct trace_buffer_settings *tbs)
 {
-	int bufsize;
+	unsigned int def_bufsize;
+
+	if (tbs->poll_interval == 0)
+		tbs->poll_interval = duration;
 
 	/* Assuming the worst case where we can have for cpuidle,
 	 * TRACE_IDLE_NRHITS_PER_SEC.  Each state enter/exit line are
@@ -175,17 +180,50 @@ int idlestat_init_trace(unsigned int duration)
 	 * Divide by 2^10 to have Kb. We add 1Kb to be sure to round up.
 	*/
 
-	bufsize = 2 * TRACE_IDLE_LENGTH * TRACE_IDLE_NRHITS_PER_SEC;
-	bufsize += TRACE_CPUFREQ_LENGTH * TRACE_CPUFREQ_NRHITS_PER_SEC;
-	bufsize = (bufsize * duration / (1 << 10)) + 1;
+	if (tbs->percpu_buffer_size == 0) {
+		def_bufsize = 2 * TRACE_IDLE_LENGTH;
+		def_bufsize *= TRACE_IDLE_NRHITS_PER_SEC;
+		def_bufsize += TRACE_CPUFREQ_LENGTH *
+				TRACE_CPUFREQ_NRHITS_PER_SEC;
+		def_bufsize = (def_bufsize * tbs->poll_interval / (1 << 10));
+		def_bufsize += 1;
 
-	if (write_int(TRACE_BUFFER_SIZE_PATH, bufsize))
+		tbs->percpu_buffer_size = def_bufsize;
+	}
+
+	if (tbs->poll_interval >= duration) {
+		verbose_printf(1,
+			       "Polling is disabled during trace "
+			       "(polling interval exceeds trace duration).\n");
+	} else {
+		verbose_printf(1, "Polling interval:     %u s\n",
+				tbs->poll_interval);
+	}
+	verbose_printf(1, "Per cpu trace buffer: %u kB\n",
+			tbs->percpu_buffer_size);
+
+	return 0;
+}
+
+int idlestat_init_trace(unsigned int percpu_bufsize)
+{
+	int bufsize = (int)percpu_bufsize;
+
+	if (write_int(TRACE_BUFFER_SIZE_PATH, bufsize)) {
+		fprintf(stderr,
+			"Failed to set trace buffer to desired size. If the "
+			"error was caused by failure in memory allocation, "
+			"try to increase buffer size (-S, --buffer-size) "
+			"or decrease polling interval "
+			"(-I, --polling-interval).\n"
+			"Increase verbosity (-v) to see current values\n");
 		return -1;
+	}
 
 	if (read_int(TRACE_BUFFER_TOTAL_PATH, &bufsize))
 		return -1;
 
-	printf("Total trace buffer: %d kB\n", bufsize);
+	verbose_printf(1, "Total trace buffer:   %d kB\n", bufsize);
 
 	/* Disable all the traces */
 	if (write_int(TRACE_EVENT_PATH, 0))

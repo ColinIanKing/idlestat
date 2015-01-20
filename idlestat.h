@@ -124,10 +124,16 @@ enum modes {
 	IMPORT
 };
 
+struct trace_buffer_settings {
+	unsigned int percpu_buffer_size;
+	unsigned int poll_interval;
+};
+
 struct program_options {
 	int mode;
 	int display;
 	unsigned int duration;
+	struct trace_buffer_settings tbs;
 	char *filename;
 	char *baseline_filename;
 	char *outfilename;

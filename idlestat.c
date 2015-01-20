@@ -1000,6 +1000,8 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "wakeup",      no_argument,       NULL, 'w' },
 		{ "boxless-report", no_argument,    NULL, 'B' },
 		{ "csv-report",  no_argument,       NULL, 'C' },
+		{ "poll-interval", required_argument, NULL, 'I' },
+		{ "buffer-size", required_argument, NULL, 'S' },
 		{ "version",     no_argument,       NULL, 'V' },
 		{ 0, 0, 0, 0 }
 	};
@@ -1014,7 +1016,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":b:ce:f:ho:pr:t:vwBCV",
+		c = getopt_long(argc, argv, ":b:ce:f:ho:pr:t:vwBCI:S:V",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1079,6 +1081,12 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			fprintf(stderr, "-B: report type already set to %s\n",
 				options->report_type_name);
 			return -1;
+		case 'I':
+			options->tbs.poll_interval = atoi(optarg);
+			break;
+		case 'S':
+			options->tbs.percpu_buffer_size = atoi(optarg);
+			break;
 		case 0:     /* getopt_long() set a variable, just keep going */
 			break;
 		case ':':   /* missing option argument */
@@ -1374,11 +1382,22 @@ int main(int argc, char *argv[], char *const envp[])
 		if (is_err(saved_trace_options))
 			return 1;
 
+		/*
+		 * Calculate/verify buffer size and polling trace data
+		 * interval. The interval or may may not be used to
+		 * transfer data from kernel trace buffer to some
+		 * storage media. It is needed for long eventful traces,
+		 * but is not preferred. If the user does not specify
+		 * the values, we will calculate reasonable defaults.
+		 */
+		if (calculate_buffer_parameters(options.duration, &options.tbs))
+			return 1;
+
 		/* Initialize the traces for cpu_idle and increase the
-		 * buffer size to let 'idlestat' to sleep instead of
-		 * acquiring data, hence preventing it to pertubate the
+		 * buffer size to let 'idlestat' to possibly sleep instead
+		 * of acquiring data, hence preventing it to pertubate the
 		 * measurements. */
-		if (idlestat_init_trace(options.duration))
+		if (idlestat_init_trace(options.tbs.percpu_buffer_size))
 			goto err_restore_trace_options;
 
 		/* Remove all the previous traces */

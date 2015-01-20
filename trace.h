@@ -40,9 +40,12 @@
 #define TRACE_CPUFREQ_LENGTH 196
 
 struct trace_options;
+struct trace_buffer_settings;
 
 extern int idlestat_trace_enable(bool enable);
 extern int idlestat_flush_trace(void);
+extern int calculate_buffer_parameters(unsigned int duration,
+					struct trace_buffer_settings *tbs);
 extern int idlestat_init_trace(unsigned int duration);
 extern struct trace_options *idlestat_store_trace_options(void);
 extern int idlestat_restore_trace_options(struct trace_options *options);
