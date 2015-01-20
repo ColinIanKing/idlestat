@@ -491,18 +491,26 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 				}
 			}
 		}
-		/*
-		 * XXX
-		 * No cluster P-state duration info available yet, so estimate this
-		 * as the maximum of the durations of its cores at that frequency.
-		 */
-		for (i = 0; i < clustp->number_cap_states; i++) {
-			pp = &clustp->p_energy[i];
-			cluster_cap += pp->max_core_duration * pp->cluster_power;
 
-			verbose_fprintf(stderr, 1, "       P%02d cap estimate for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
-					clustp->number_cap_states - i - 1, pp->speed,
-					pp->max_core_duration,
+		/* Cluster P-state duration */
+		for (j = 0; j < s_phy->pstates->max; j++) {
+			struct cpufreq_pstate *p = &s_phy->pstates->pstate[j];
+
+			if (p->count == 0)
+				continue;
+
+			pp = find_pstate_energy_info(current_cluster, p->freq/1000);
+			if (!pp) {
+				verbose_fprintf(stderr, 2, "Cluster %c  P%-2d no energy model for [%d] (%d hits, %f duration)\n",
+					s_phy->physical_id + 'A', j, p->freq/1000,
+					p->count, p->duration);
+				continue;
+			}
+
+			cluster_cap += p->duration * pp->cluster_power;
+			verbose_fprintf(stderr, 1, "Freq %7u kHz cap estimate for [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
+					pp->speed,
+					p->duration,
 					pp->cluster_power,
 					"",
 					cluster_cap,
