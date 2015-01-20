@@ -51,7 +51,9 @@ struct cpu_core {
 	int cpu_num;
 	bool is_ht;
 	struct cpuidle_cstates *cstates;
+	struct cpufreq_pstates *pstates;
 	struct cpuidle_cstates *base_cstates;
+	struct cpufreq_pstates *base_pstates;
 };
 
 struct cpu_physical {
@@ -61,7 +63,9 @@ struct cpu_physical {
 	int core_num;
 	struct list_head cpu_enum_head;
 	struct cpuidle_cstates *cstates;
+	struct cpufreq_pstates *pstates;
 	struct cpuidle_cstates *base_cstates;
+	struct cpufreq_pstates *base_pstates;
 };
 
 struct cpu_topology {

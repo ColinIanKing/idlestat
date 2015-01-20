@@ -191,7 +191,7 @@ struct init_pstates {
 extern int store_data(double time, int state, int cpu, struct cpuidle_datas *datas);
 extern struct cpuidle_cstates *build_cstate_info(int nrcpus);
 extern struct cpufreq_pstates *build_pstate_info(int nrcpus);
-extern void cpu_change_pstate(struct cpuidle_datas *datas, int cpu, unsigned int freq, double time);
+extern int cpu_change_pstate(struct cpuidle_datas *datas, int cpu, unsigned int freq, double time);
 extern int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count);
 
 #endif

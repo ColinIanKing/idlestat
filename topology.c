@@ -95,6 +95,7 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 
 		s_phy->core_num = 0;
 		s_phy->physical_id = info->physical_id;
+		s_phy->pstates = build_pstate_info(1);
 		INIT_LIST_HEAD(&s_phy->core_head);
 		INIT_LIST_HEAD(&s_phy->cpu_enum_head);
 
@@ -116,6 +117,7 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 		s_core->cpu_num = 0;
 		s_core->is_ht = false;
 		s_core->core_id = info->core_id;
+		s_core->pstates = build_pstate_info(1);
 		INIT_LIST_HEAD(&s_core->cpu_head);
 
 		ptr = check_pos_from_head(&s_phy->core_head, s_core->core_id);
@@ -206,6 +208,7 @@ void free_cpu_topology(struct list_head *head)
 	list_for_each_entry_safe(lphysical, n, head, list_physical) {
 		free_cpu_core_list(&lphysical->core_head);
 		list_del(&lphysical->list_physical);
+		free(lphysical->pstates->pstate);
 		free(lphysical);
 	}
 }
@@ -503,11 +506,13 @@ void assign_baseline_in_topo(struct cpuidle_datas *datas)
 				struct cpu_physical, list_physical);
 	topo_for_each_cluster(main_phy, topo) {
 		main_phy->base_cstates = base_phy->cstates;
+		main_phy->base_pstates = base_phy->pstates;
 		/* Core loop */
 		base_core = list_first_entry(&base_phy->core_head,
 					struct cpu_core, list_core);
 		cluster_for_each_core(main_core, main_phy) {
 			main_core->base_cstates = base_core->cstates;
+			main_core->base_pstates = base_core->pstates;
 			/* Cpu loop */
 			base_cpu = list_first_entry(&base_core->cpu_head,
 					struct cpu_cpu, list_cpu);
@@ -541,16 +546,27 @@ int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(st
 
 		sprintf(tmp, "cluster%c", s_phy->physical_id + 'A');
 
-		if (cstate)
+		if (cstate) {
 			dump(ops, s_phy->cstates, s_phy->base_cstates,
 				tmp, report_data);
+		} else {
+			dump(ops, s_phy->pstates, s_phy->base_pstates,
+				tmp, report_data);
+		}
 
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
-			if (s_core->is_ht && cstate) {
+			if (s_core->is_ht) {
 				sprintf(tmp, "core%d", s_core->core_id);
-				dump(ops, s_core->cstates,
-					s_core->base_cstates,
-					tmp, report_data);
+
+				if (cstate) {
+					dump(ops, s_core->cstates,
+						s_core->base_cstates,
+						tmp, report_data);
+				} else {
+					dump(ops, s_core->pstates,
+						s_core->base_pstates,
+						tmp, report_data);
+				}
 			}
 
 			list_for_each_entry(s_cpu, &s_core->cpu_head,
@@ -609,11 +625,13 @@ int cluster_get_highest_freq(struct cpu_physical *clust)
 	struct cpu_cpu *cpu;
 	int cpu_pstate_index;
 	unsigned int cpu_freq;
-	unsigned int ret = ~0;
+	unsigned int ret = ~0U;
 
 	cluster_for_each_cpu(cpu, clust) {
 		cpu_pstate_index = cpu->pstates->current;
 		if (cpu_pstate_index < 0)
+			continue;
+		if (cpu->pstates->idle > 0)
 			continue;
 		cpu_freq = cpu->pstates->pstate[cpu_pstate_index].freq;
 		if (cpu_freq < ret)
@@ -621,7 +639,7 @@ int cluster_get_highest_freq(struct cpu_physical *clust)
 	}
 
 	/* It is possible we don't know anything near the start of trace */
-	if (ret == ~0)
+	if (ret == ~0U)
 		ret = 0;
 
 	return ret;

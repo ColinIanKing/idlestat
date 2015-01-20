@@ -531,10 +531,6 @@ static void open_current_pstate(struct cpufreq_pstates *ps, double time)
 static void open_next_pstate(struct cpufreq_pstates *ps, int s, double time)
 {
 	ps->current = s;
-	if (ps->idle > 0) {
-		fprintf(stderr, "Warning: opening P-state on an idle CPU\n");
-		return;
-	}
 	open_current_pstate(ps, time);
 }
 
@@ -544,11 +540,10 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 	struct cpufreq_pstate *p = &(ps->pstate[c]);
 	double elapsed;
 
-	if (ps->idle > 0) {
-		fprintf(stderr, "Warning: closing P-state on an idle CPU\n");
-		return;
-	}
 	elapsed = (time - ps->time_enter) * USEC_PER_SEC;
+	if (elapsed <= 0)
+		return;
+
 	p->min_time = MIN(p->min_time, elapsed);
 	p->max_time = MAX(p->max_time, elapsed);
 	p->avg_time = AVG(p->avg_time, elapsed, p->count + 1);
@@ -556,7 +551,69 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 	p->count++;
 }
 
-void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
+int record_group_freq(struct cpufreq_pstates *ps, double time,
+			      unsigned int freq)
+{
+	int cur, next;
+
+	cur = ps->current;
+	if (freq > 0)
+		next = alloc_pstate(ps, freq);
+	else
+		next = -1;
+
+	if (cur == next)
+		return 0; /* No effective change */
+
+	if (cur == -1) {
+		/* The current pstate is -1, possibly leaving idle state */
+		if (next == -1)
+			return 0; /* No known frequency to open, still idle */
+		open_next_pstate(ps, next, time);
+		return 0;
+	}
+
+	/*
+	 * The group was running, update all stats and open a new state
+	 * if needed.
+	 */
+	close_current_pstate(ps, time);
+
+	ps->current = next;
+	if (next == -1)
+		return 0;
+
+	open_current_pstate(ps, time);
+	return 0;
+}
+
+int check_pstate_composite(struct cpuidle_datas *datas, int cpu, double time)
+{
+	struct cpu_core *aff_core;
+	struct cpu_physical *aff_cluster;
+	unsigned int freq;
+
+	aff_core = cpu_to_core(cpu, datas->topo);
+	aff_cluster = cpu_to_cluster(cpu, datas->topo);
+
+	freq = core_get_highest_freq(aff_core);
+	if (aff_core->is_ht) {
+		verbose_fprintf(stderr, 5, "Core %c%d:   freq %9u, time %f\n",
+				aff_cluster->physical_id + 'A',
+				aff_core->core_id,
+				freq, time);
+	}
+	if (record_group_freq(aff_core->pstates, time, freq) == -1)
+		return -1;
+
+	freq = cluster_get_highest_freq(aff_cluster);
+	verbose_fprintf(stderr, 5, "Cluster %c: freq %9u, time %f\n",
+		aff_cluster->physical_id + 'A', freq, time);
+	return record_group_freq(aff_cluster->pstates, time, freq);
+}
+
+
+int cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 			      unsigned int freq, double time)
 {
 	struct cpufreq_pstates *ps;
@@ -573,12 +630,12 @@ void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 		 * stats unchanged
 		 */
 		ps->current = next;
-		return;
+		return 0;
 
 	case -1:
 		/* current pstate is -1, i.e. this is the first update */
 		open_next_pstate(ps, next, time);
-		return;
+		break;
 
 	case 0:
 		/* running CPU, update all stats, but skip closing current
@@ -587,13 +644,16 @@ void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 		if (p)
 			close_current_pstate(ps, time);
 		open_next_pstate(ps, next, time);
-		return;
+		break;
 
 	default:
 		fprintf(stderr, "illegal pstate %d for cpu %d, exiting.\n",
 			cur, cpu);
 		exit(-1);
 	}
+
+	/* See if core or cluster highest frequency changed */
+	return check_pstate_composite(datas, cpu, time);
 }
 
 /**
@@ -644,6 +704,9 @@ static void cpu_pstate_idle(struct cpuidle_datas *datas, int cpu, double time)
 	if (ps->current != -1)
 		close_current_pstate(ps, time);
 	ps->idle = 1;
+
+	/* See if core or cluster highest frequency changed */
+	assert(check_pstate_composite(datas, cpu, time) != -1);
 }
 
 static void cpu_pstate_running(struct cpuidle_datas *datas, int cpu,
@@ -653,6 +716,9 @@ static void cpu_pstate_running(struct cpuidle_datas *datas, int cpu,
 	ps->idle = 0;
 	if (ps->current != -1)
 		open_current_pstate(ps, time);
+
+	/* See if core or cluster highest frequency changed */
+	assert(check_pstate_composite(datas, cpu, time) != -1);
 }
 
 static int cstate_begin(double time, int state, struct cpuidle_cstates *cstates)
@@ -684,12 +750,18 @@ static void cstate_end(double time, struct cpuidle_cstates *cstates)
 	data->end = time;
 	data->duration = data->end - data->begin;
 
-	/* That happens when precision digit in the file exceed
+	/*
+	 * Duration can be < 0 when precision digit in the file exceed
 	 * 7 (eg. xxx.1000000). Ignoring the result because I don't
-	 * find a way to fix with the sscanf used in the caller
+	 * find a way to fix with the sscanf used in the caller.
+	 *
+	 * For synthetic test material, the duration may be 0.
+	 *
+	 * In both cases, do not record the entry, but do end the state
+	 * regardless.
 	 */
-	if (data->duration < 0)
-		data->duration = 0;
+	if (data->duration <= 0)
+		goto skip_entry;
 
 	/* convert to us */
 	data->duration *= USEC_PER_SEC;
@@ -717,6 +789,7 @@ static void cstate_end(double time, struct cpuidle_cstates *cstates)
 	cstate->duration += data->duration;
 	cstate->nrdata++;
 
+skip_entry:
 	/* CPU is no longer idle */
 	cstates->current_cstate = -1;
 }
@@ -766,9 +839,13 @@ int store_data(double time, int state, int cpu,
 	state = core_get_least_cstate(aff_core);
 	if (record_cstate_event(aff_core->cstates, time, state) == -1)
 		return -1;
+
 	aff_cluster = cpu_to_cluster(cpu, datas->topo);
 	state = cluster_get_least_cstate(aff_cluster);
-	return record_cstate_event(aff_cluster->cstates, time,state);
+	if (record_cstate_event(aff_cluster->cstates, time,state) == -1)
+		return -1;
+
+	return 0;
 }
 
 static void release_datas(struct cpuidle_datas *datas)
