@@ -90,6 +90,9 @@ static int make_energy_model_template(struct program_options *options)
 		for (i = 0; i < s_cpu->pstates->max; i++) {
 			struct cpufreq_pstate *p = &s_cpu->pstates->pstate[i];
 
+			if (p->freq == 0)
+				continue;
+
 			fprintf(f, "%d\t\t?\t?\n", p->freq/1000);
 		}
 		fprintf(f, "\nC-states:\n");

@@ -392,7 +392,7 @@ static void output_pstates(FILE *f, struct init_pstates *initp, int nrcpus,
 	ts_usec = (ts - ts_sec) * USEC_PER_SEC;
 
 	for (cpu = 0; cpu < nrcpus; cpu++) {
-		freq = initp? initp->freqs[cpu] : -1;
+		freq = initp? initp->freqs[cpu] : 0;
 		fprintf(f, "%16s-%-5d [%03d] .... %5lu.%06lu: cpu_frequency: "
 			"state=%u cpu_id=%d\n", "idlestat", getpid(), cpu,
 			ts_sec, ts_usec, freq, cpu);
