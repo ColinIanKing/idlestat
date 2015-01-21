@@ -916,7 +916,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 	return 0;
 }
 
-static void write_cstate_info(FILE *f, int cpu, char *name, int target)
+static void write_cstate_info(FILE *f, char *name, int target)
 {
 	fprintf(f, "\t%s\n", name);
 	fprintf(f, "\t%d\n", target);
@@ -932,7 +932,7 @@ void output_cstate_info(FILE *f, int nrcpus) {
 	for (i=0; i < nrcpus; i++) {
 		fprintf(f, "cpuid %d:\n",  i);
 		for (j=0; j < MAXCSTATE ; j++) {
-			write_cstate_info(f, i, cstates[i].cstate[j].name,
+			write_cstate_info(f, cstates[i].cstate[j].name,
 				cstates[i].cstate[j].target_residency);
 		}
 	}
