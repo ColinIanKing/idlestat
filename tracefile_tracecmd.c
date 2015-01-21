@@ -45,7 +45,10 @@ void tracecmd_load_text_data_lines(FILE *f, char *buffer, struct cpuidle_datas *
 	setup_topo_states(datas);
 
 	do {
-		load_text_data_line(buffer, datas, TRACE_CMD_REPORT_FORMAT, &begin, &end, &count, &start);
+		if (load_text_data_line(buffer, datas, TRACE_CMD_REPORT_FORMAT,
+					&begin, &end, &start) != -1) {
+			count++;
+		}
 	} while (fgets(buffer, BUFSIZE, f));
 
 	fprintf(stderr, "Log is %lf secs long with %zd events\n",

@@ -943,7 +943,7 @@ void output_cstate_info(FILE *f, int nrcpus) {
 #define TRACECMD_REPORT_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
 
-int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
+int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer)
 {
 	int cpu, irqid;
 	char irqname[NAMELEN+1];
