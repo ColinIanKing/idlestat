@@ -330,7 +330,7 @@ static struct pstate_energy_info *find_pstate_energy_info(const unsigned int clu
 
 #define US_TO_SEC(US) (US / 1e6)
 
-void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_options *options)
+void calculate_energy_consumption(struct cpu_topology *cpu_topo)
 {
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;

@@ -1578,7 +1578,7 @@ int main(int argc, char *argv[], char *const envp[])
 	}
 
 	if (options.energy_model_filename)
-		calculate_energy_consumption(cpu_topo, &options);
+		calculate_energy_consumption(cpu_topo);
 
 	output_handler->close_report_file(report_data);
 
