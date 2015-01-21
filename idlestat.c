@@ -47,6 +47,7 @@
 #include "energy_model.h"
 #include "report_ops.h"
 #include "trace_ops.h"
+#include "compiler.h"
 
 #define IDLESTAT_VERSION "0.5"
 #define USEC_PER_SEC 1000000
@@ -181,8 +182,13 @@ static int display_pstates(struct report_ops *ops, void *arg, void *baseline, ch
 	return 0;
 }
 
-static int display_wakeup(struct report_ops *ops, void *arg, void *baseline, char *cpu, void *report_data)
+static int display_wakeup(struct report_ops *ops, void *arg, UNUSED void *baseline, char *cpu, void *report_data)
 {
+	/*
+	 * FIXME: This function is lacking comparison report support
+	 * When adding the feature, remember to remove the UNUSED tag
+	 * from baseline parameter.
+	 */
 	int i;
 	bool cpu_header = false;
 	struct cpuidle_cstates *cstates = arg;

@@ -32,6 +32,7 @@
 #include "report_ops.h"
 #include "idlestat.h"
 #include "utils.h"
+#include "compiler.h"
 
 
 static void charrep(char c, int count)
@@ -41,7 +42,8 @@ static void charrep(char c, int count)
 		printf("%c", c);
 }
 
-static int default_check_output(struct program_options *options, void *report_data)
+static int default_check_output(struct program_options *options,
+				UNUSED void *report_data)
 {
 	if (check_window_size() && !options->outfilename) {
 		fprintf(stderr, "The terminal must be at least "
@@ -51,12 +53,12 @@ static int default_check_output(struct program_options *options, void *report_da
 	return 0;
 }
 
-static int default_open_report_file(char *path, void *report_data)
+static int default_open_report_file(char *path, UNUSED void *report_data)
 {
 	return redirect_stdout_to_file(path);
 }
 
-static int default_close_report_file(void *report_data)
+static int default_close_report_file(UNUSED void *report_data)
 {
 	return (fclose(stdout) == EOF) ? -1 : 0;
 }
@@ -64,7 +66,7 @@ static int default_close_report_file(void *report_data)
 
 /* Topology headers for all tables (C-state/P-state/Wakeups) */
 
-static void boxless_cpu_header(const char *cpu, void *report_data)
+static void boxless_cpu_header(const char *cpu, UNUSED void *report_data)
 {
 	/* No pipe characters and less aggressive indentions */
         if (strstr(cpu, "cluster"))
@@ -89,11 +91,11 @@ static void default_cpu_header(const char *cpu, int len)
 	printf("\n");
 }
 
-static void default_end_cpu(void *report_data)
+static void default_end_cpu(UNUSED void *report_data)
 {
 }
 
-static void boxless_end_cpu(void *report_data)
+static void boxless_end_cpu(UNUSED void *report_data)
 {
 	printf("\n");
 }
@@ -101,25 +103,27 @@ static void boxless_end_cpu(void *report_data)
 
 /* C-states */
 
-static void boxless_cstate_table_header(void *report_data)
+static void boxless_cstate_table_header(UNUSED void *report_data)
 {
 	/* Note: Data is right-aligned, so boxless headers are too */
 	printf("   C-state        min        max        avg      total    hits    over   under\n");
 }
 
-static void default_cstate_table_header(void *report_data)
+static void default_cstate_table_header(UNUSED void *report_data)
 {
 	/* Note: Boxed header columns appear centered */
 	charrep('-', 80);
 	printf("\n| C-state  |   min    |   max    |   avg    |   total  | hits  |  over | under |\n");
 }
 
-static void default_cstate_cpu_header(const char *cpu, void *report_data)
+static void default_cstate_cpu_header(const char *cpu,
+				      UNUSED void *report_data)
 {
 	default_cpu_header(cpu, 80);
 }
 
-static void boxless_cstate_single_state(struct cpuidle_cstate *c, void *report_data)
+static void boxless_cstate_single_state(struct cpuidle_cstate *c,
+					UNUSED void *report_data)
 {
 	printf("  %8s   ", c->name);
 	display_factored_time(c->min_time == DBL_MAX ? 0. :
@@ -131,10 +135,12 @@ static void boxless_cstate_single_state(struct cpuidle_cstate *c, void *report_d
 	printf("   ");
 	display_factored_time(c->duration, 8);
 	printf("   ");
-	printf("%5d   %5d   %5d\n", c->nrdata, c->early_wakings, c->late_wakings);
+	printf("%5d   %5d   %5d\n", c->nrdata, c->early_wakings,
+	       c->late_wakings);
 }
 
-static void default_cstate_single_state(struct cpuidle_cstate *c, void *report_data)
+static void default_cstate_single_state(struct cpuidle_cstate *c,
+					UNUSED void *report_data)
 {
 	printf("| %8s | ", c->name);
 	display_factored_time(c->min_time == DBL_MAX ? 0. :
@@ -146,15 +152,16 @@ static void default_cstate_single_state(struct cpuidle_cstate *c, void *report_d
 	printf(" | ");
 	display_factored_time(c->duration, 8);
 	printf(" | ");
-	printf("%5d | %5d | %5d |\n", c->nrdata, c->early_wakings, c->late_wakings);
+	printf("%5d | %5d | %5d |\n", c->nrdata, c->early_wakings,
+	       c->late_wakings);
 }
 
-static void boxless_cstate_table_footer(void *report_data)
+static void boxless_cstate_table_footer(UNUSED void *report_data)
 {
 	printf("\n");
 }
 
-static void default_cstate_table_footer(void *report_data)
+static void default_cstate_table_footer(UNUSED void *report_data)
 {
 	charrep('-', 80);
 	printf("\n\n");
@@ -163,13 +170,13 @@ static void default_cstate_table_footer(void *report_data)
 
 /* P-states */
 
-static void boxless_pstate_table_header(void *report_data)
+static void boxless_pstate_table_header(UNUSED void *report_data)
 {
 	/* Note: Data is right-aligned, so boxless headers are too */
 	printf("   P-state        min        max        avg      total    hits\n");
 }
 
-static void default_pstate_table_header(void *report_data)
+static void default_pstate_table_header(UNUSED void *report_data)
 {
 	charrep('-', 64);
 	printf("\n");
@@ -178,12 +185,14 @@ static void default_pstate_table_header(void *report_data)
 	printf("| P-state  |   min    |   max    |   avg    |   total  | hits  |\n");
 }
 
-static void default_pstate_cpu_header(const char *cpu, void *report_data)
+static void default_pstate_cpu_header(const char *cpu,
+				      UNUSED void *report_data)
 {
 	default_cpu_header(cpu, 64);
 }
 
-static void boxless_pstate_single_freq(struct cpufreq_pstate *p, void *report_data)
+static void boxless_pstate_single_freq(struct cpufreq_pstate *p,
+				       UNUSED void *report_data)
 {
 	printf("  ");
 	display_factored_freq(p->freq, 8);
@@ -198,7 +207,8 @@ static void boxless_pstate_single_freq(struct cpufreq_pstate *p, void *report_da
 	printf("   %5d\n", p->count);
 }
 
-static void default_pstate_single_freq(struct cpufreq_pstate *p, void *report_data)
+static void default_pstate_single_freq(struct cpufreq_pstate *p,
+				       UNUSED void *report_data)
 {
 	printf("| ");
 	display_factored_freq(p->freq, 8);
@@ -213,12 +223,12 @@ static void default_pstate_single_freq(struct cpufreq_pstate *p, void *report_da
 	printf(" | %5d |\n", p->count);
 }
 
-static void boxless_pstate_table_footer(void *report_data)
+static void boxless_pstate_table_footer(UNUSED void *report_data)
 {
 	printf("\n");
 }
 
-static void default_pstate_table_footer(void *report_data)
+static void default_pstate_table_footer(UNUSED void *report_data)
 {
 	charrep('-', 64);
 	printf("\n\n");
@@ -227,7 +237,7 @@ static void default_pstate_table_footer(void *report_data)
 
 /* Wakeups */
 
-static void boxless_wakeup_table_header(void *report_data)
+static void boxless_wakeup_table_header(UNUSED void *report_data)
 {
 	/*
 	 * Note: Columns 1 and 2 are left-aligned, others are right-aligned.
@@ -236,7 +246,7 @@ static void boxless_wakeup_table_header(void *report_data)
 	printf("  IRQ   Name                Count     early      late\n");
 }
 
-static void default_wakeup_table_header(void *report_data)
+static void default_wakeup_table_header(UNUSED void *report_data)
 {
 	charrep('-', 55);
 	printf("\n");
@@ -245,12 +255,14 @@ static void default_wakeup_table_header(void *report_data)
 	printf("| IRQ |       Name      |  Count  |  early  |  late   |\n");
 }
 
-static void default_wakeup_cpu_header(const char *cpu, void *report_data)
+static void default_wakeup_cpu_header(const char *cpu,
+				      UNUSED void *report_data)
 {
 	default_cpu_header(cpu, 55);
 }
 
-static void boxless_wakeup_single_irq(struct wakeup_irq *irqinfo, void *report_data)
+static void boxless_wakeup_single_irq(struct wakeup_irq *irqinfo,
+				      UNUSED void *report_data)
 {
 	if (irqinfo->id != -1) {
 		printf("  %-3d   %-15.15s   %7d   %7d   %7d\n",
@@ -263,7 +275,8 @@ static void boxless_wakeup_single_irq(struct wakeup_irq *irqinfo, void *report_d
 	}
 }
 
-static void default_wakeup_single_irq(struct wakeup_irq *irqinfo, void *report_data)
+static void default_wakeup_single_irq(struct wakeup_irq *irqinfo,
+				      UNUSED void *report_data)
 {
 	if (irqinfo->id != -1) {
 		printf("| %-3d | %-15.15s | %7d | %7d | %7d |\n",
@@ -276,12 +289,12 @@ static void default_wakeup_single_irq(struct wakeup_irq *irqinfo, void *report_d
 	}
 }
 
-static void boxless_wakeup_table_footer(void *report_data)
+static void boxless_wakeup_table_footer(UNUSED void *report_data)
 {
 	printf("\n");
 }
 
-static void default_wakeup_table_footer(void *report_data)
+static void default_wakeup_table_footer(UNUSED void *report_data)
 {
 	charrep('-', 55);
 	printf("\n\n");

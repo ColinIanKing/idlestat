@@ -21,7 +21,7 @@
 #     Daniel Lezcano <daniel.lezcano@linaro.org>
 #     Zoran Markovic <zoran.markovic@linaro.org>
 #
-CFLAGS?=-g -Wall
+CFLAGS?=-g -Wall -Wunused-parameter
 CC=gcc
 
 TRACE_OBJS =	tracefile_idlestat.o tracefile_ftrace.o \

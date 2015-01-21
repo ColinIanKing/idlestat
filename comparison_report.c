@@ -35,6 +35,7 @@
 #include "report_ops.h"
 #include "idlestat.h"
 #include "utils.h"
+#include "compiler.h"
 
 struct compare_report_data {
 	struct cpuidle_cstate *curr_cstate_baseline;
@@ -78,7 +79,7 @@ static int compare_check_options(struct program_options *options)
 	return 0;
 }
 
-static void * compare_alloc_data(struct program_options *options)
+static void * compare_alloc_data(UNUSED struct program_options *options)
 {
 	struct compare_report_data *ret = calloc(sizeof(*ret), 1);
 
@@ -94,7 +95,8 @@ static void compare_release_data(void *data)
 }
 
 
-static void compare_cstate_single_state(struct cpuidle_cstate *c, void *report_data)
+static void compare_cstate_single_state(struct cpuidle_cstate *c,
+					void *report_data)
 {
 	struct cpuidle_cstate empty;
 	struct cpuidle_cstate diff;
@@ -166,7 +168,8 @@ static void compare_cstate_single_state(struct cpuidle_cstate *c, void *report_d
 	printf("\n");
 }
 
-static void compare_set_baseline_cstate(struct cpuidle_cstate *b, void *report_data)
+static void compare_set_baseline_cstate(struct cpuidle_cstate *b,
+					void *report_data)
 {
 	struct compare_report_data *rdata;
 
@@ -190,7 +193,8 @@ static void compare_cstate_end_cpu(void *report_data)
 }
 
 
-static void compare_pstate_single_freq(struct cpufreq_pstate *p, void *report_data)
+static void compare_pstate_single_freq(struct cpufreq_pstate *p,
+				       void *report_data)
 {
 	struct cpufreq_pstate empty;
 	struct cpufreq_pstate diff;
@@ -258,7 +262,8 @@ static void compare_pstate_single_freq(struct cpufreq_pstate *p, void *report_da
 	printf("\n");
 }
 
-static void compare_set_baseline_pstate(struct cpufreq_pstate *b, void *report_data)
+static void compare_set_baseline_pstate(struct cpufreq_pstate *b,
+					void *report_data)
 {
 	struct compare_report_data *rdata;
 
