@@ -25,16 +25,26 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := libstlport
-
 LOCAL_MODULE := idlestat
+LOCAL_CFLAGS :=
+LOCAL_LDFLAGS := -Wl,--no-gc-sections
 
-LOCAL_C_INCLUDES +=	bionic \
+TRACE_SRC_FILES = tracefile_idlestat.c tracefile_ftrace.c \
+		tracefile_tracecmd.c
+
+REPORT_SRC_FILES = default_report.c csv_report.c comparison_report.c
 
 LOCAL_SRC_FILES += \
 	idlestat.c \
 	topology.c \
 	trace.c    \
 	utils.c   \
+	energy_model.c   \
+	reports.c   \
+	ops_head.c   \
+	$(TRACE_SRC_FILES) \
+	$(REPORT_SRC_FILES) \
+	ops_tail.c   \
+
 
 include $(BUILD_EXECUTABLE)

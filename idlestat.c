@@ -38,6 +38,9 @@
 #include <sys/wait.h>
 #include <assert.h>
 #include <ctype.h>
+#ifdef ANDROID
+#include <libgen.h>
+#endif
 
 #include "idlestat.h"
 #include "utils.h"
@@ -293,7 +296,7 @@ int cpuidle_get_target_residency(int cpu, int state)
 	ret = fscanf(snf, "%u", &tr);
 	fclose(snf);
 
-	return (ret == 1) ? tr : -1;
+	return (ret == 1) ? (int)tr : -1;
 }
 
 /**
@@ -622,8 +625,8 @@ int check_pstate_composite(struct cpuidle_datas *datas, int cpu, double time)
 int cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 			      unsigned int freq, double time)
 {
-	struct cpufreq_pstates *ps;
-	struct cpufreq_pstate *p;
+	struct cpufreq_pstates *ps = NULL;
+	struct cpufreq_pstate *p = NULL;
 	int cur, next;
 
 	cur = get_current_pstate(datas, cpu, &ps, &p);

@@ -75,7 +75,7 @@ static int make_energy_model_template(struct program_options *options)
 	list_for_each_entry(s_phy, &cpu_topo->physical_head, list_physical) {
 		unsigned int num_cap_states = 0;
 		unsigned int num_c_states = 0;
-		unsigned int i;
+		int i;
 
 		s_core = list_entry((&s_phy->core_head)->prev, struct cpu_core, list_core);
 		s_cpu = list_entry((&s_core->cpu_head)->prev, struct cpu_cpu, list_cpu);
@@ -118,11 +118,11 @@ int parse_energy_model(struct program_options *options)
 {
 	FILE *f;
 	char tmp;
-	struct cluster_energy_info *clustp;
+	struct cluster_energy_info *clustp = NULL;
 	unsigned int number_cap_states, number_c_states;
 	int current_cluster = -1;
-	unsigned int current_pstate;
-	unsigned int current_cstate;
+	unsigned int current_pstate = 0;
+	unsigned int current_cstate = 0;
 	unsigned int clust_p, core_p;
 	char buffer[BUFSIZE];
 	char *path = options->energy_model_filename;
@@ -170,7 +170,7 @@ int parse_energy_model(struct program_options *options)
 			sscanf(buffer, "cluster%c: %d cap states %d C states", &tmp,
 				&number_cap_states, &number_c_states);
 			current_cluster = tmp - 'A';
-			if (current_cluster >= clusters_in_energy_file) {
+			if (current_cluster >= (int) clusters_in_energy_file) {
 				fprintf(stderr, "%s: cluster%c out of range in %s\n",
 					__func__, tmp, path);
 				fclose(f);
@@ -304,7 +304,7 @@ static struct cstate_energy_info *find_cstate_energy_info(const unsigned int clu
 {
 	struct cluster_energy_info *clustp;
 	struct cstate_energy_info *cp;
-	int i;
+	unsigned int i;
 
 	clustp = cluster_energy_table + cluster;
 	cp = &clustp->c_energy[0];
@@ -318,7 +318,7 @@ static struct pstate_energy_info *find_pstate_energy_info(const unsigned int clu
 {
 	struct cluster_energy_info *clustp;
 	struct pstate_energy_info *pp;
-	int i;
+	unsigned int i;
 
 	clustp = cluster_energy_table + cluster;
 	pp = &clustp->p_energy[0];

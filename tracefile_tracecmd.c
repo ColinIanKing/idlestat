@@ -33,7 +33,6 @@
 #include <string.h>
 #include <malloc.h>
 #include <assert.h>
-#include <values.h>
 
 #define TRACE_CMD_REPORT_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 

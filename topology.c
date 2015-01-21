@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <assert.h>
-#include <values.h>
+#include <float.h>
 
 #include "list.h"
 #include "utils.h"

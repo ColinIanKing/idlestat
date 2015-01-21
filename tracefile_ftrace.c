@@ -31,7 +31,6 @@
 #include <string.h>
 #include <malloc.h>
 #include <assert.h>
-#include <values.h>
 
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
 
