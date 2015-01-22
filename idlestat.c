@@ -407,7 +407,7 @@ static void output_pstates(FILE *f, struct init_pstates *initp, int nrcpus,
  * This function checks the array of struct cpufreq_pstate in @pstates
  * for an entry for @freq. If one if found, the index for this entry
  * is returned. If not, a new entry is inserted into the array so that
- * the frequencies are in decreasing order and the index for the new
+ * the frequencies are in increasing order and the index for the new
  * entry is returned.
  * @return: the index of the existing or newly allocated pstate struct
  */
@@ -419,7 +419,7 @@ static int alloc_pstate(struct cpufreq_pstates *pstates, unsigned int freq)
 	pstate = pstates->pstate;
 	nrfreq = pstates->max;
 
-	for (i = 0; i < nrfreq && freq <= pstate[i].freq; i++) {
+	for (i = 0; i < nrfreq && freq >= pstate[i].freq; i++) {
 		if (pstate[i].freq == freq)
 			return i;
 	}

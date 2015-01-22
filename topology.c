@@ -625,7 +625,7 @@ int cluster_get_highest_freq(struct cpu_physical *clust)
 	struct cpu_cpu *cpu;
 	int cpu_pstate_index;
 	unsigned int cpu_freq;
-	unsigned int ret = ~0U;
+	unsigned int ret = 0;
 
 	cluster_for_each_cpu(cpu, clust) {
 		cpu_pstate_index = cpu->pstates->current;
@@ -634,13 +634,9 @@ int cluster_get_highest_freq(struct cpu_physical *clust)
 		if (cpu->pstates->idle > 0)
 			continue;
 		cpu_freq = cpu->pstates->pstate[cpu_pstate_index].freq;
-		if (cpu_freq < ret)
+		if (cpu_freq > ret)
 			ret = cpu_freq;
 	}
-
-	/* It is possible we don't know anything near the start of trace */
-	if (ret == ~0U)
-		ret = 0;
 
 	return ret;
 }
@@ -664,20 +660,16 @@ int core_get_highest_freq(struct cpu_core *core)
 	struct cpu_cpu *cpu;
 	int cpu_pstate_index;
 	unsigned int cpu_freq;
-	unsigned int ret = ~0;
+	unsigned int ret = 0;
 
 	core_for_each_cpu(cpu, core) {
 		cpu_pstate_index = cpu->pstates->current;
 		if (cpu_pstate_index < 0)
 			continue;
 		cpu_freq = cpu->pstates->pstate[cpu_pstate_index].freq;
-		if (cpu_freq < ret)
+		if (cpu_freq > ret)
 			ret = cpu_freq;
 	}
-
-	/* It is possible we don't know anything near the start of trace */
-	if (ret == ~0)
-		ret = 0;
 
 	return ret;
 }
