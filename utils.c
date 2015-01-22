@@ -69,23 +69,31 @@ void set_verbose_level(int level)
 int verbose_printf(int min_level, const char *fmt, ...)
 {
 	va_list ap;
+	int ret;
 
 	if (min_level > verbose_level)
 		return 0;
 
 	va_start(ap, fmt);
-	return vprintf(fmt, ap);
+	ret = vprintf(fmt, ap);
+	va_end(ap);
+
+	return ret;
 }
 
 int verbose_fprintf(FILE *f, int min_level, const char *fmt, ...)
 {
 	va_list ap;
+	int ret;
 
 	if (min_level > verbose_level)
 		return 0;
 
 	va_start(ap, fmt);
-	return vfprintf(f, fmt, ap);
+	ret = vfprintf(f, fmt, ap);
+	va_end(ap);
+
+	return ret;
 }
 
 int write_int(const char *path, int val)
