@@ -370,8 +370,9 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 			struct cpuidle_cstate *c = &s_phy->cstates->cstate[j];
 
 			if (c->nrdata == 0) {
-				verbose_fprintf(stderr, 2, "      C%-2d +%7d hits for [%s]\n",
-				 		j, c->nrdata, c->name);
+				verbose_fprintf(stderr, 2, 
+						"      C%-2d       no hits for [%15s] |             0 |       0 |         |              |            0 |              |\n",
+				 		j, c->name);
 				continue;
 			}
 
@@ -393,6 +394,35 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 					"");
 		}
 
+		/* Cluster P-state duration */
+		for (j = 0; j < s_phy->pstates->max; j++) {
+			struct cpufreq_pstate *p = &s_phy->pstates->pstate[j];
+
+			if (p->freq == 0)
+				continue;
+
+			if (p->count == 0)
+				continue;
+
+			pp = find_pstate_energy_info(current_cluster, p->freq/1000);
+			if (!pp) {
+				verbose_fprintf(stderr, 2, "Cluster %c  frequency %u MHz no energy model for [%d] (%d hits, %f duration)\n",
+					s_phy->physical_id + 'A', p->freq/1000,
+					p->count, p->duration);
+				continue;
+			}
+
+			cluster_cap += p->duration * pp->cluster_power;
+			verbose_fprintf(stderr, 1, "          +%7d hits for [%11d MHz] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
+					p->count,
+					pp->speed,
+					p->duration,
+					pp->cluster_power,
+					"",
+					cluster_cap,
+					"", "");
+		}
+
 		/* All C-States and P-States for the CPUs on current cluster */
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
 
@@ -404,8 +434,9 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 				for (i = 0; i < s_cpu->cstates->cstate_max + 1; i++) {
 					struct cpuidle_cstate *c = &s_cpu->cstates->cstate[i];
 					if (c->nrdata == 0) {
-						verbose_fprintf(stderr, 2, "Cpu%d  C%-2d +%7d hits for [%4s]\n",
-						 	s_cpu->cpu_id, i, c->nrdata, c->name);
+						verbose_fprintf(stderr, 2,
+							"Cpu%d  C%-2d       no hits for [%15s] |             0 |       0 |         |              |            0 |              |\n",
+						 	s_cpu->cpu_id, i, c->name);
 						continue;
 					}
 					cp = find_cstate_energy_info(current_cluster, c->name);
@@ -431,9 +462,13 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 				for (i = 0; i < s_cpu->pstates->max; i++) {
 					struct cpufreq_pstate *p = &s_cpu->pstates->pstate[i];
 
+					if (p->freq == 0)
+						continue;
+
 					if (p->count == 0) {
-						verbose_fprintf(stderr, 2, "Cpu%d  P%-2d +%7d hits for [%d]\n",
-							s_cpu->cpu_id, i, p->count, p->freq/1000);
+						verbose_fprintf(stderr, 2,
+							"Cpu%d            no hits for [%11d MHz] |             0 |       0 |         |            0 |              |              |\n",
+							s_cpu->cpu_id, p->freq/1000);
 						continue;
 					}
 					pp = find_pstate_energy_info(current_cluster, p->freq/1000);
@@ -444,43 +479,16 @@ void calculate_energy_consumption(struct cpu_topology *cpu_topo, struct program_
 						continue;
 					}
 
-					pp->max_core_duration = MAX(p->duration, pp->max_core_duration);
-
 					cluster_cap += p->duration * pp->core_power;
 
-					verbose_fprintf(stderr, 1, "Cpu%d  P%-2d +%7d hits for [%15d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
-							s_cpu->cpu_id, i, p->count, p->freq/1000,
+					verbose_fprintf(stderr, 1, "Cpu%d      +%7d hits for [%11d MHz] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
+							s_cpu->cpu_id, p->count, p->freq/1000,
 							p->duration, pp->core_power,
 							"",
 							cluster_cap,
 							"", "");
 				}
 			}
-		}
-
-		/* Cluster P-state duration */
-		for (j = 0; j < s_phy->pstates->max; j++) {
-			struct cpufreq_pstate *p = &s_phy->pstates->pstate[j];
-
-			if (p->count == 0)
-				continue;
-
-			pp = find_pstate_energy_info(current_cluster, p->freq/1000);
-			if (!pp) {
-				verbose_fprintf(stderr, 2, "Cluster %c  P%-2d no energy model for [%d] (%d hits, %f duration)\n",
-					s_phy->physical_id + 'A', j, p->freq/1000,
-					p->count, p->duration);
-				continue;
-			}
-
-			cluster_cap += p->duration * pp->cluster_power;
-			verbose_fprintf(stderr, 1, "       Pxx Freq %7u kHz [%7d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
-					pp->speed,
-					p->duration,
-					pp->cluster_power,
-					"",
-					cluster_cap,
-					"", "");
 		}
 
 		verbose_fprintf(stderr, 1, "\n\nCluster%c%29s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
