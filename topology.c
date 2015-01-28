@@ -414,49 +414,68 @@ struct cpu_topology *read_cpu_topo_info(FILE *f, char *buf)
 		return result;
 
 	do {
+		/* Skip comment lines */
+		if (*buf == '#' || *buf == '\0') {
+			if (!fgets(buf, BUFSIZE, f))
+				goto read_error_or_eof;
+			continue;
+		}
+
+		/* Cluster line? */
 		ret = sscanf(buf, "cluster%c", &pid);
 		if (!ret)
 			break;
-
 		cpu_info.physical_id = pid - 'A';
 
-		fgets(buf, BUFSIZE, f);
+		if (!fgets(buf, BUFSIZE, f))
+			goto read_error_or_eof;
+
+		is_ht = false;
 		do {
-			ret = sscanf(buf, "\tcore%d", &cpu_info.core_id);
-			if (ret) {
-				is_ht = true;
-				fgets(buf, BUFSIZE, f);
-			} else {
-				ret = sscanf(buf, "\tcpu%d", &cpu_info.cpu_id);
-				if (ret)
-					is_ht = false;
-				else
-					break;
+			/* Skip comment lines */
+			if (*buf == '#' || *buf == '\0') {
+				if (!fgets(buf, BUFSIZE, f))
+					goto read_error_or_eof;
+				continue;
 			}
 
-			do {
-				if (!is_ht) {
-					ret = sscanf(buf, "\tcpu%d",
-						     &cpu_info.cpu_id);
-					cpu_info.core_id = cpu_info.cpu_id;
-				} else {
-					ret = sscanf(buf, "\t\tcpu%d",
-						     &cpu_info.cpu_id);
-				}
+			/* Core line? */
+			ret = sscanf(buf, "\tcore%d", &cpu_info.core_id);
+			if (ret) {
+				if (!fgets(buf, BUFSIZE, f))
+					goto read_error_or_eof;
+				is_ht = true;
+				continue;
+			}
 
-				if (!ret)
-					break;
+			/* Cpu line? */
+			if (!is_ht) {
+				ret = sscanf(buf, "\tcpu%d",
+					     &cpu_info.cpu_id);
+				cpu_info.core_id = cpu_info.cpu_id;
+			} else {
+				ret = sscanf(buf, "\t\tcpu%d",
+					     &cpu_info.cpu_id);
+			}
 
-				add_topo_info(result, &cpu_info);
+			if (!ret)
+				break;
 
-				fgets(buf, BUFSIZE, f);
-			} while (1);
+			add_topo_info(result, &cpu_info);
+
+			if (!fgets(buf, BUFSIZE, f))
+				goto read_error_or_eof;
 		} while (1);
 	} while (1);
 
 	/* output_topo_info(result); */
 
 	return result;
+
+read_error_or_eof:
+	fprintf(stderr, "Error: EOF in trace file while reading topology\n");
+	release_cpu_topo_info(result);
+	return ptrerror(NULL);
 }
 
 int release_cpu_topo_info(struct cpu_topology *topo)
