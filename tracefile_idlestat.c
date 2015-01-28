@@ -46,7 +46,7 @@
  *
  * @return: per-CPU array of structs (success) or ptrerror() (error)
  */
-static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, char *buffer, int nrcpus)
+static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, char *buffer, int nrcpus, struct cpu_topology * topo)
 {
 	int cpu;
 	struct cpuidle_cstates *cstates;
@@ -65,6 +65,9 @@ static struct cpuidle_cstates *load_and_build_cstate_info(FILE* f, char *buffer,
 
 		cstates[cpu].cstate_max = -1;
 		cstates[cpu].current_cstate = -1;
+
+		if (!cpu_is_online(topo, cpu))
+			continue;
 
 		if (sscanf(buffer, "cpuid %d:\n", &read_cpu) != 1 ||
 				read_cpu != cpu) {
@@ -237,7 +240,8 @@ static struct cpuidle_datas * idlestat_native_load(const char *filename)
 		goto propagate_error_free_datas;
 
 	/* Read C-state information */
-	datas->cstates = load_and_build_cstate_info(f, buffer, nrcpus);
+	datas->cstates = load_and_build_cstate_info(f, buffer,
+						nrcpus, datas->topo);
 	if (is_err(datas->cstates))
 		goto propagate_error_free_datas;
 

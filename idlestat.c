@@ -352,7 +352,7 @@ static void release_init_pstates(struct init_pstates *initp)
 	free(initp);
 }
 
-static struct init_pstates *build_init_pstates(void)
+static struct init_pstates *build_init_pstates(struct cpu_topology *topo)
 {
 	struct init_pstates *initp;
 	int nrcpus, cpu;
@@ -378,6 +378,9 @@ static struct init_pstates *build_init_pstates(void)
 		char *fpath;
 		unsigned int *freq = &(freqs[cpu]);
 
+		if (!cpu_is_online(topo, cpu))
+			continue;
+
 		if (asprintf(&fpath, CPUFREQ_CURFREQ_PATH_FORMAT, cpu) < 0) {
 			release_init_pstates(initp);
 			return NULL;
@@ -390,7 +393,8 @@ static struct init_pstates *build_init_pstates(void)
 	return initp;
 }
 
-static void output_pstates(FILE *f, struct init_pstates *initp, int nrcpus,
+static void output_pstates(FILE *f, struct init_pstates *initp,
+				int nrcpus, struct cpu_topology *topo,
 				double ts)
 {
 	int cpu;
@@ -401,7 +405,10 @@ static void output_pstates(FILE *f, struct init_pstates *initp, int nrcpus,
 	ts_usec = (ts - ts_sec) * USEC_PER_SEC;
 
 	for (cpu = 0; cpu < nrcpus; cpu++) {
-		freq = initp? initp->freqs[cpu] : 0;
+		if (!cpu_is_online(topo, cpu))
+			continue;
+
+		freq = initp ? initp->freqs[cpu] : 0;
 		fprintf(f, "%16s-%-5d [%03d] .... %5lu.%06lu: cpu_frequency: "
 			"state=%u cpu_id=%d\n", "idlestat", getpid(), cpu,
 			ts_sec, ts_usec, freq, cpu);
@@ -931,7 +938,8 @@ static void write_cstate_info(FILE *f, char *name, int target)
 	fprintf(f, "\t%d\n", target);
 }
 
-void output_cstate_info(FILE *f, int nrcpus) {
+void output_cstate_info(FILE *f, struct cpu_topology * topo, int nrcpus)
+{
 	struct cpuidle_cstates *cstates;
 	int i, j;
 
@@ -939,6 +947,9 @@ void output_cstate_info(FILE *f, int nrcpus) {
 	assert(!is_err(cstates));
 
 	for (i=0; i < nrcpus; i++) {
+		if (!cpu_is_online(topo, i))
+			continue;
+
 		fprintf(f, "cpuid %d:\n",  i);
 		for (j=0; j < MAXCSTATE ; j++) {
 			write_cstate_info(f, cstates[i].cstate[j].name,
@@ -1281,17 +1292,17 @@ static int idlestat_store(const char *path, double start_ts, double end_ts,
 	output_cpu_topo_info(cpu_topo, f);
 
 	/* output c-states information */
-	output_cstate_info(f, ret);
+	output_cstate_info(f, cpu_topo, ret);
 
 	/* emit initial pstate changes */
 	if (initp)
-		output_pstates(f, initp, initp->nrcpus, start_ts);
+		output_pstates(f, initp, initp->nrcpus, cpu_topo, start_ts);
 
 	ret = idlestat_file_for_each_line(TRACE_FILE, f, store_line);
 
 	/* emit final pstate changes */
 	if (initp)
-		output_pstates(f, NULL, initp->nrcpus, end_ts);
+		output_pstates(f, NULL, initp->nrcpus, cpu_topo, end_ts);
 
 	fclose(f);
 
@@ -1494,7 +1505,7 @@ int main(int argc, char *argv[], char *const envp[])
 		if (get_trace_ts(&start_ts) == -1)
 			goto err_restore_trace_options;
 
-		initp = build_init_pstates();
+		initp = build_init_pstates(cpu_topo);
 
 		/* Start the recording */
 		if (idlestat_trace_enable(true))

@@ -84,6 +84,12 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 	struct cpu_core     *s_core;
 	struct cpu_cpu      *s_cpu = NULL;
 	struct list_head    *ptr;
+	int *new_online_cpus;
+
+	assert(info != NULL);
+	assert(info->physical_id >= 0);
+	assert(info->core_id >= 0);
+	assert(info->cpu_id >= 0);
 
 	/* add cpu physical info */
 	ptr = check_exist_from_head(&topo_list->physical_head,
@@ -149,7 +155,33 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 	/* Add to the list (really a set) of all contained cpus in s_phy */
 	list_add_tail(&s_cpu->list_phy_enum, &s_phy->cpu_enum_head);
 
+	/* Add this cpu to the list of online cpus */
+	if (topo_list->online_array_size <= info->cpu_id) {
+		new_online_cpus = realloc(topo_list->online_cpus,
+				sizeof(int) * (info->cpu_id + 1) );
+		if (new_online_cpus == NULL)
+			return error(__func__);
+
+		memset(new_online_cpus + topo_list->online_array_size,
+			0,
+			sizeof(int) *
+			(info->cpu_id + 1 - topo_list->online_array_size));
+		topo_list->online_cpus = new_online_cpus;
+		topo_list->online_array_size = info->cpu_id + 1;
+	}
+	topo_list->online_cpus[info->cpu_id] = 1;
+
 	return 0;
+}
+
+int cpu_is_online(struct cpu_topology *topo, int cpuid)
+{
+	assert(cpuid >= 0);
+
+	if (topo->online_array_size <= cpuid)
+		return 0;
+
+	return topo->online_cpus[cpuid];
 }
 
 struct cpu_physical *cpu_to_cluster(int cpuid, struct cpu_topology *topo)
@@ -302,6 +334,7 @@ static struct cpu_topology *topo_folder_scan(char *path, folder_filter_t filter)
 	struct dirent dirent, *direntp;
 	struct stat s;
 	int ret;
+	int is_online;
 	struct cpu_topology *result = NULL;
 
 	dir = opendir(path);
@@ -334,6 +367,32 @@ static struct cpu_topology *topo_folder_scan(char *path, folder_filter_t filter)
 
 		if (strncmp(direntp->d_name, "cpu", 3))
 			continue;
+
+		/*
+		 * Some cpu(s) may be offline. Before trying to figure
+		 * out the topology entry, see if the cpu is online.
+		 * The boot cpu (cpu0) is always online, so skip the check
+		 * for that.
+		 */
+		if (!strcmp(direntp->d_name, "cpu0")) {
+			is_online = 1;
+		} else {
+			ret = asprintf(&newpath, "%s/%s/%s", basedir,
+				       direntp->d_name, "online");
+			if (ret < 0)
+				goto out_free_basedir;
+
+			ret = read_int(newpath, &is_online);
+			free(newpath);
+			if (ret < 0)
+				goto out_free_basedir;
+		}
+
+		if (!is_online) {
+			verbose_fprintf(stderr, 1, "Warning: %s is offline\n",
+					direntp->d_name);
+			continue;
+		}
 
 		ret = asprintf(&newpath, "%s/%s/%s", basedir,
 				direntp->d_name, "topology");
@@ -483,6 +542,7 @@ int release_cpu_topo_info(struct cpu_topology *topo)
 
 	/* Free alloced memory */
 	free_cpu_topology(&topo->physical_head);
+	free(topo->online_cpus);
 	free(topo);
 
 	return 0;
@@ -818,6 +878,9 @@ int setup_topo_states(struct cpuidle_datas *datas)
 
 	/* Map cpu state arrays into topology structures */
 	for (i = 0; i < datas->nrcpus; i++) {
+		if (!cpu_is_online(topo, i))
+			continue;
+
 		s_cpu = find_cpu_point(topo, i);
 		if (s_cpu) {
 			s_cpu->cstates = &datas->cstates[i];

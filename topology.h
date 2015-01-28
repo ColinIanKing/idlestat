@@ -70,6 +70,8 @@ struct cpu_physical {
 
 struct cpu_topology {
 	struct list_head physical_head;
+	int *online_cpus;
+	int online_array_size;
 };
 
 extern struct cpu_topology *alloc_cpu_topo_info(void);
@@ -80,6 +82,8 @@ extern int output_cpu_topo_info(struct cpu_topology *topo, FILE *f);
 extern void assign_baseline_in_topo(struct cpuidle_datas *datas);
 extern int release_cpu_topo_cstates(struct cpu_topology *topo);
 extern int dump_cpu_topo_info(struct report_ops *ops, void *report_data, int (*dump)(struct report_ops *, void *, void *, char *, void *), struct cpu_topology *topo, int cstate);
+
+extern int cpu_is_online(struct cpu_topology *topo, int cpuid);
 
 extern struct cpu_physical *cpu_to_cluster(int cpuid, struct cpu_topology *topo);
 extern struct cpu_core *cpu_to_core(int cpuid, struct cpu_topology *topo);
