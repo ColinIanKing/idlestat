@@ -70,7 +70,6 @@ struct cpu_physical {
 
 struct cpu_topology {
 	struct list_head physical_head;
-	int physical_num;
 };
 
 extern struct cpu_topology *alloc_cpu_topo_info(void);

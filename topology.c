@@ -102,7 +102,6 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 		ptr = check_pos_from_head(&topo_list->physical_head,
 						s_phy->physical_id);
 		list_add_tail(&s_phy->list_physical, ptr);
-		topo_list->physical_num++;
 	} else {
 		s_phy = list_entry(ptr, struct cpu_physical, list_physical);
 	}
@@ -391,7 +390,6 @@ struct cpu_topology *alloc_cpu_topo_info(void)
 	if (ret == NULL)
 		return ptrerror(__func__);
 	INIT_LIST_HEAD(&ret->physical_head);
-	ret->physical_num = 0;
 
 	return ret;
 }
