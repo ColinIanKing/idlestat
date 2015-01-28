@@ -333,7 +333,7 @@ static struct cpu_topology *topo_folder_scan(char *path, folder_filter_t filter)
 		if (filter && filter(direntp->d_name))
 			continue;
 
-		if (!strstr(direntp->d_name, "cpu"))
+		if (strncmp(direntp->d_name, "cpu", 3))
 			continue;
 
 		ret = asprintf(&newpath, "%s/%s/%s", basedir,
