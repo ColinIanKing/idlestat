@@ -79,8 +79,17 @@ static int make_energy_model_template(struct program_options *options)
 
 		s_core = list_entry((&s_phy->core_head)->prev, struct cpu_core, list_core);
 		s_cpu = list_entry((&s_core->cpu_head)->prev, struct cpu_cpu, list_cpu);
-		num_cap_states = s_cpu->pstates->max;
-		num_c_states = s_cpu->cstates->cstate_max;
+		num_c_states = s_cpu->cstates->cstate_max + 1;
+		for (i = 0; i < s_cpu->pstates->max; i++) {
+			struct cpufreq_pstate *p = &s_cpu->pstates->pstate[i];
+
+			if (p->freq == 0)
+				continue;
+
+			num_cap_states++;
+		}
+
+		fprintf(f, "\nC-states:\n");
 
 		fprintf(f, "cluster%c: %d cap states %d C states\n\n", cluster_number + 'A',
 			num_cap_states, num_c_states);
