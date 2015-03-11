@@ -43,5 +43,9 @@ default: idlestat
 idlestat: $(OBJS)
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) $(OBJS) -o $@
 
+install: idlestat idlestat.1
+	install -D -t /usr/local/bin idlestat
+	install -D -t /usr/local/man/man1 idlestat.1
+
 clean:
 	rm -f $(OBJS) idlestat

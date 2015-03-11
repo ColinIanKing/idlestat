@@ -1,0 +1,276 @@
+.TH idlestat 1 "2015-01-10" "0.1" "idlestat utils"
+.SH NAME
+idlestat \- A CPU power-state analysis tool.
+.SH SYNOPSIS
+.\" The general command line
+Trace mode:
+.IP
+.B idlestat
+--trace -f|--trace-file \fIfilename\fR -t|--duration \fIseconds\fR [\fIOPTION\fR] [command]
+.P
+Reporting mode:
+.IP
+.B idlestat
+--import -f|--trace-file \fIfilename\fR [\fIOPTION\fR]
+.SH DESCRIPTION
+\fBIdlestat\fR comes with two modes: in \fBtrace mode\fR, it measures how long the CPUs have been in the different idle and operating states, analyzes captured events, logs them, and generates a report; in \fBreporting mode\fR, it reads the trace file, analyzes logged events in the trace file, and generates a report. A report by idlestat shows statistics of power related states. Currently, it handles P-states, C-states, and IRQ states.
+
+For trace mode, \fBidlestat\fR relies on the kernel's FTRACE function to monitor and capture C-state and P-state transitions of CPUs over a time interval. That is, for trace mode, idlestat needs a kernel with FTRACE related configurations enabled. And since it uses FTRACE, root privilege is needed when running in trace mode. Idlestat extracts the following information from trace file:
+.IP ""  2
+Times when CPUs entered and exited a certain C-state
+.IP "" 2
+Times when CPUs entered and exited a certain P-state
+.IP "" 2
+Raised IRQs
+.LP
+Following a successful run, idlestat calculates and reports the following
+information:
+.IP - 2
+Total, average, minimum, and maximum time spent in each C-state, per-CPU.
+.IP - 2
+Total, average, minimum, and maximum time spent in each P-state, per-CPU.
+.IP - 2
+Total, average, minimum, and maximum time during which all CPUs in a cluster
+were in a "shallowest" (closest to running) state of all the constituent
+CPUs.
+.IP - 2
+Number of times a certain IRQ caused a CPU to exit idle state, per-CPU and per-IRQ
+
+.SH OPTIONS
+.TP
+\fB\-\-trace\fR
+Run idlestat in trace mode, as noted above, root privilege is needed. Used with \fB\-t\fR and \fB\-f\fR to specify running duration and trace output filename, respectively.
+
+.TP
+\fB\-\-import\fR
+Run idlestat in reporting mode. Used with \fB\-f\fR to specify the trace file to import.
+
+.TP
+\fB\-f\fR, \fB\-\-trace-file\fR \fIfilename\fR
+Specify the trace filename to generate (for \fB\-\-trace\fR) or read (for \fB\-\-import\fR).
+
+.TP
+\fB\-t\fR, \fB\-\-duration\fR \fIseconds\fR
+Time to capture in seconds
+
+.TP
+\fB[command]\fR
+If the command argument is given, idlestat will fork a child to run the command so that you can capture related states when the command is running. Note that if the running command does not terminate before the time specified by \fB\-t\fR, idlestat will send a SIGTERM to the child process to ask it to terminate. If the command to run lasts less than the time specified by \fB\-t\fR, idlestat will terminate after the command finished.
+
+When there is no command, idlestat does trace capture and other works dutifully.
+
+.TP
+\fB\-b\fR, \fB\-\-baseline_trace\fR \fIbaseline_filename\fR
+Specify baseline filename for trace comparison. See \fBCOMPARISON\fR and \fBEXAMPLES\fR for more information.
+
+.TP
+\fB\-c\fR, \fB\-\-idle\fR
+Show idle, C-state in ACPI term, statistics. This is the default mode if neither \fB\-w\fR nor \fB\-p\fR is set. Note that \fB\-w\fR, \fB\-c\fR, and \fB\-p\fR are not exclusive, that is, you can choose any combination of the three.
+
+.TP
+\fB\-e\fR, \fB\-\-energy-model-file\fR \fIenergy_model\fR
+Specify energy model file. See \fBENERGY MODEL\fR
+for the description of the energy file format.
+
+.TP
+\fB\-h\fR, \fB\-\-help\fR, \fB\-?\fR
+Print simple help messages.
+
+.TP
+\fB\-o\fR, \fB\-\-output-file\fR \fIfilename\fR
+Specify the file name to output statistics. If not specified, statistics
+are printed to stdout.
+
+.TP
+\fB\-p\fR, \fB\-\-frequency\fR
+Show cpufreq (or say P-state) statistics.
+
+.TP
+\fB\-r\fR, \fB\-\-report-format\fR
+Specify the report format. Valid types are: default, boxless, csv, and
+comparison.
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Specify the verbosity level. This option could be specified multiple times. Each copy of the option increases verbosity level by one, currently the highest verbosity level used for any message is 2.
+
+.TP
+\fB\-w\fR, \fB\-\-wakeup\fR
+Show wakeup statistics.
+
+.TP
+\fB\-B\fR, \fB\-\-boxless\fR
+Set the report format to boxless
+
+.TP
+\fB\-C\fR, \fB\-\-csv\fR
+Set the report format to comma separated values (CSV)
+
+.TP
+\fB\-I, \fB\-\-poll\-interval\fR
+Set kernel polling interval, which is used to determine if it’s time move data from kernel FTRACE buffer to other places.
+
+.TP
+\fB\-S, \fB\-\-buffer\-size\fR
+Set the kernel FTRACE buffer size to use.
+
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Show idlestat version information and exit.
+
+.SH COMPARISON
+The comparison report is used to compare changes between the active trace (specified by \fB\-f\fR,\fB\-\-trace\-file\fR) and the baseline trace. It becomes active by providing a baseline trace (\fB-b\fR,\fB\-\-baseline_trace\fR) and specifying the comparison report style with "\fB\-r\fR comparison".
+
+.SH ENERGY MODEL
+The following describes the format of idlestat energy model files
+(using the included energy_model file as an example):
+
+Lines starting with # or which are blank are ignored.
+
+First, specify how many clusters there are.
+
+.nf
+clusters 1
+.fi
+
+For each cluster (named clusterA, clusterB, etc.) specify
+how many cap states and C states there are. Idlestat will check
+that the correct number of clusters are provided.
+
+.nf
+#
+clusterA: 16 cap states 5 C states
+.fi
+
+Then specify the name, cluster power and core power for each P-state
+(idlestat will check if there are the correct number of P-states provided)
+in the cluster.
+.nf
+
+P-states:
+# speed, cluster power, core power
+2901	6200	3200
+2900	6190	3190
+2800	6180	3180
+2700	6170	3170
+2500	6160	3160
+2400	6150	3150
+2300	6140	3140
+2200	6130	3130
+2000	6120	3120
+1900	6110	3110
+1800	6100	3100
+1700	6090	3090
+1600	6080	3080
+1400	6070	3070
+1300	6060	3060
+1200	6050	3050
+
+.fi
+Then specify the name, cluster power and core power for each C-state
+(idlestat will check if there are the correct number of C-states provided)
+in the cluster.
+
+.nf
+
+C-states:
+C1-IVB	25	0
+C1E-IVB	30	0
+C3-IVB	35	0
+C6-IVB	40	0
+C7-IVB	35	0
+
+.fi
+
+Finally, specify the wakeup power.
+
+wakeup	210	6
+
+Repeat for each cluster.
+
+.SH TRACE FILE FORMAT
+
+Idlestat has its own trace file format, which is based on ftrace's format (see Documentation/trace/ftrace.txt in kernel source). Besides standard FTRACE entries, idlestat adds CPU topology, C-state information, and some artificial P-State entries. Idlestat can also import standard FTRACE format and "trace-cmd report" format. Note that since there is no CPU topology and C-state information in FTRACE or trace-cmd trace files, they should be used on the machines those traces are captured.
+
+.SH REPORT FORMATS
+Currently, idlestat supports four report formats: default, boxless, csv, and comparison.
+.IP 1. 4
+default: show C-state, P-State, and IRQ state statistics tables if corresponding -c, -p, and -w command line options are set. Tables come with - and | as boundaries.
+.IP 2. 4
+boxless: it's the default without - and | as table boundaries. This is more Braille terminal
+friendly than the default one
+.IP 3. 4
+csv: comma separated values. This is easier to process with scripting languages, such as
+awk and perl. Also it's easier to be processed with spreadsheet software.
+.IP 4. 4
+comparison: This is similar to default report style, except that it displays changes
+in active trace compared to the baseline trace.  It becomes active by providing a
+baseline trace (--baseline) and specifying the comparison report style with
+"-r comparison".
+.SH EXAMPLES
+Assuming the idlestat binary is in your PATH.
+.IP 1. 4
+Run a trace, post-process the results (default is to show only C-state statistics):
+.RS 8
+sudo idlestat --trace -f /tmp/mytrace -t 10
+.RE
+.IP 2. 4
+Run a trace, post-process the results and print all statistics:
+.RS 8
+sudo idlestat --trace -f /tmp/mytrace -t 10 -p -c -w
+.RE
+.IP 3. 4
+Run a trace with an external workload, post-process the results:
+.RS 8
+sudo idlestat --trace -f /tmp/mytrace -t 10 -p -c -w -- rt-app /tmp/mp3.json
+.RE
+.IP 4. 4
+Post-process a trace captured earlier:
+.RS 8
+idlestat --import -f /tmp/mytrace
+.RE
+.IP 5. 4
+Run a trace, post-process the results and print all statistics into a file:
+.RS 8
+sudo idlestat --trace -f /tmp/mytrace -t 10 -p -c -w -o /tmp/myreport
+.RE
+.IP 6. 4
+Run a comparison trace, say, before and after making changes to system behavior
+.RS 8
+sudo idlestat --trace -f /tmp/baseline -t 10
+.br
+sudo idlestat --trace -f /tmp/changedstate -t 10
+.br
+idlestat --import -f /tmp/changedstate -b /tmp/baseline -r comparison
+.RE
+.SH LIMITATIONS
+During the acquisition, idlestat tries to stay quiescent to prevent disturbing the traces. For this reason the traces are buffered in a fixed buffer size. If the duration of the acquisition produces more traces than what the buffer is capable to store, that will result in a truncated result.
+.SH AUTHOR
+Started by
+.MT daniel.lezcano@linaro.org
+Daniel Lezcano
+.ME
+with contributions from others.
+See the git log of the source code (https://git.linaro.org/power/idlestat.git) for all the contributors.
+.SH REPORTING BUGS
+Send mail to
+.MT sched-tools@linaro.org
+.ME .
+Or, submit bugs at
+.UR https://bugs.linaro.org/enter_bug.cgi
+.UE
+under Product "power management", Component "idlestat".
+
+.SH COPYRIGHT
+Copyright \(co 2015, Linaro Limited.
+License GPLv2: GNU GPL version 2
+.UR http://gnu.org/licenses/gpl.html
+.UE .
+
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Or, say, there is NO warranty; not even for MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+
+.SH SEE ALSO
+trace-cmd(1), trace-cmd-format(1), trace-cmd.dat(5)
