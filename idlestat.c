@@ -696,21 +696,11 @@ static void merge_pstates(struct cpuidle_datas *datas,
 		percpu_a = &(datas->pstates[cpu]);
 		percpu_b = &(baseline->pstates[cpu]);
 
-		for (idx = 0; idx < percpu_a->max && idx < percpu_b->max; ) {
-			if (percpu_a->pstate[idx].freq >
-					percpu_b->pstate[idx].freq) {
-				assert(alloc_pstate(percpu_b,
-					percpu_a->pstate[idx].freq) == idx);
-				continue;
-			}
-			if (percpu_a->pstate[idx].freq <
-					percpu_b->pstate[idx].freq) {
-				assert(alloc_pstate(percpu_a,
-					percpu_b->pstate[idx].freq) == idx);
-				continue;
-			}
-			++idx;
-		}
+		for (idx = 0; idx < percpu_a->max; ++idx)
+			alloc_pstate(percpu_b, percpu_a->pstate[idx].freq);
+
+		for (idx = 0; idx < percpu_b->max; ++idx)
+			alloc_pstate(percpu_a, percpu_b->pstate[idx].freq);
 	}
 }
 
