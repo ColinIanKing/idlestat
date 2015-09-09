@@ -1229,7 +1229,7 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 					int (*handler)(const char *, void *))
 {
 	FILE *f;
-	int ret;
+	int ret = 0;
 
 	if (!handler)
 		return -1;
