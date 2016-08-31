@@ -293,6 +293,7 @@ int cpuidle_get_target_residency(int cpu, int state)
 		free(fpath);
 		return -1;
 	}
+	free(fpath);
 	ret = fscanf(snf, "%u", &tr);
 	fclose(snf);
 
