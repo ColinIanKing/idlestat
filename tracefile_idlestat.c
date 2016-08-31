@@ -166,7 +166,7 @@ void load_text_data_lines(FILE *f, char *buffer, struct cpuidle_datas *datas)
 		}
 	} while (fgets(buffer, BUFSIZE, f));
 
-	fprintf(stderr, "Log is %lf secs long with %zd events\n",
+	fprintf(stderr, "Log is %lf secs long with %zu events\n",
 		end - begin, count);
 }
 
