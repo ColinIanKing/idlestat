@@ -149,9 +149,6 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 	if (s_core->cpu_num > 1)
 		s_core->is_ht = true;
 
-	/* Assumption: Same cpuid cannot exist in 2 different cores */
-	assert(!check_exist_from_head(&s_phy->cpu_enum_head, info->cpu_id));
-
 	/* Add to the list (really a set) of all contained cpus in s_phy */
 	list_add_tail(&s_cpu->list_phy_enum, &s_phy->cpu_enum_head);
 
