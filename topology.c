@@ -331,7 +331,7 @@ static struct cpu_topology *topo_folder_scan(char *path, folder_filter_t filter)
 {
 	DIR *dir, *dir_topology;
 	char *basedir, *newpath;
-	struct dirent dirent, *direntp;
+	struct dirent *direntp;
 	struct stat s;
 	int ret;
 	int is_online;
@@ -354,11 +354,7 @@ static struct cpu_topology *topo_folder_scan(char *path, folder_filter_t filter)
 		return result;
 	}
 
-	while (!readdir_r(dir, &dirent, &direntp)) {
-
-		if (!direntp)
-			break;
-
+	while ((direntp = readdir(dir)) != NULL) {
 		if (direntp->d_name[0] == '.')
 			continue;
 
