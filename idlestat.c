@@ -950,7 +950,7 @@ void output_cstate_info(FILE *f, struct cpu_topology * topo, int nrcpus)
 }
 
 #define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
-#define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^(](%32s"
+#define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^(](%16s"
 #define TRACECMD_REPORT_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
 
