@@ -51,6 +51,37 @@ sudo ./idlestat --trace -f /tmp/mytrace -t 10 -- /bin/sleep 10
 sudo ./idlestat --trace -f /tmp/myoutput -t 10 -- cyclictest -t 4 -i 2000 -q -D 5
 
 Selective trace output
-sudo ./idlestate --import -f /tmp/mytrace -w
-sudo ./idlestate --import -f /tmp/mytrace -c -p
-sudo ./idlestate --import -f /tmp/mytrace -p -w
+sudo ./idlestat --import -f /tmp/mytrace -w
+sudo ./idlestat --import -f /tmp/mytrace -c -p
+sudo ./idlestat --import -f /tmp/mytrace -p -w
+
+Bugs
+----
+
+If you believe that you have encountered a bug, please file a bug report on
+Linaro Bugzilla at https://bugs.linaro.org. You may be prompted to register
+for a new account first.
+
+Once you log in, click on
+"New" --> "Power Management" --> "Idlestat" as the component. Then fill
+in the form.
+
+Helpful tips for filing a bug report:
+    1. Provide logs, be verbose as possible
+    2. Outline steps to reproduce the bug
+    3. Describe the environment you are running idlestat on (e.g. Android,
+        OpenEmbedded, Ubuntu, etc.)
+    4. What hardware you're using
+
+Contribution
+------------
+
+If you wish to submit patches to improve idlestat, please send them to
+the Linaro sched-tools mailing list at sched-tools@lists.linaro.org with
+"PATCH IDLESTAT" as the subject prefix.
+
+Feedback
+--------
+
+Please submit questions and comments to the Linaro sched-tools mailing list at
+sched-tools@lists.linaro.org with "idlestat" as part of the subject.
