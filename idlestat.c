@@ -315,7 +315,7 @@ struct cpuidle_cstates *build_cstate_info(int nrcpus)
 
 	assert(nrcpus > 0);
 
-	cstates = calloc(nrcpus, sizeof(*cstates));
+	cstates = (struct cpuidle_cstates *)calloc(nrcpus, sizeof(struct cpuidle_cstates));
 	if (!cstates)
 		return ptrerror(__func__);
 
@@ -947,6 +947,8 @@ void output_cstate_info(FILE *f, struct cpu_topology * topo, int nrcpus)
 				cstates[i].cstate[j].target_residency);
 		}
 	}
+
+        free(cstates);
 }
 
 #define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
