@@ -171,8 +171,8 @@ int parse_energy_model(struct program_options *options)
 				return -1;
 			}
 			sscanf(buffer, "%*s %d", &clusters_in_energy_file);
-			cluster_energy_table = calloc(sizeof(struct cluster_energy_info),
-				clusters_in_energy_file);
+			cluster_energy_table = (struct cluster_energy_info *)realloc(cluster_energy_table,
+                                               clusters_in_energy_file * sizeof(struct cluster_energy_info));
 			continue;
 		}
 		if (strstr(buffer, "cluster") && !strstr(buffer, "cluster-")) {
