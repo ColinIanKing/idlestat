@@ -52,7 +52,7 @@
 #include "trace_ops.h"
 #include "compiler.h"
 
-#define IDLESTAT_VERSION "0.7"
+#define IDLESTAT_VERSION "0.8"
 #define USEC_PER_SEC 1000000
 
 static char buffer[BUFSIZE];
