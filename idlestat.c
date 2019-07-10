@@ -360,7 +360,7 @@ static struct init_pstates *build_init_pstates(struct cpu_topology *topo)
 	unsigned int *freqs;
 
 	nrcpus = sysconf(_SC_NPROCESSORS_CONF);
-	if (nrcpus < 0)
+	if (nrcpus <= 0)
 		return NULL;
 
 	initp = calloc(sizeof(*initp), 1);
