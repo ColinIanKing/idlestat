@@ -99,7 +99,7 @@ static void csv_pstate_table_footer(UNUSED void *report_data)
 static void csv_pstate_single_freq(struct cpufreq_pstate *p,
 				   UNUSED void *report_data)
 {
-	printf(",,,%d,", p->freq);
+	printf(",,,%u,", p->freq);
 	printf("%f,", p->min_time == DBL_MAX ? 0. : p->min_time);
 	printf("%f,%f,%f,", p->max_time, p->avg_time, p->duration);
 	printf("%d", p->count);
