@@ -70,7 +70,7 @@ static int make_energy_model_template(struct program_options *options)
 	list_for_each_entry(s_phy, &cpu_topo->physical_head, list_physical)
 		cluster_count++;
 
-	fprintf(f, "clusters %d\n", cluster_count);
+	fprintf(f, "clusters %u\n", cluster_count);
 
 	list_for_each_entry(s_phy, &cpu_topo->physical_head, list_physical) {
 		unsigned int num_cap_states = 0;
@@ -91,7 +91,7 @@ static int make_energy_model_template(struct program_options *options)
 
 		fprintf(f, "\nC-states:\n");
 
-		fprintf(f, "cluster%c: %d cap states %d C states\n\n", cluster_number + 'A',
+		fprintf(f, "cluster%c: %u cap states %u C states\n\n", cluster_number + 'A',
 			num_cap_states, num_c_states);
 		fprintf(f, "P-states:\n");
 		fprintf(f, "# speed, cluster power, core power\n");
@@ -102,7 +102,7 @@ static int make_energy_model_template(struct program_options *options)
 			if (p->freq == 0)
 				continue;
 
-			fprintf(f, "%d\t\t?\t?\n", p->freq/1000);
+			fprintf(f, "%u\t\t?\t?\n", p->freq/1000);
 		}
 		fprintf(f, "\nC-states:\n");
 		fprintf(f, "# name, cluster power, core power\n");
@@ -170,13 +170,13 @@ int parse_energy_model(struct program_options *options)
 				fclose(f);
 				return -1;
 			}
-			sscanf(buffer, "%*s %d", &clusters_in_energy_file);
+			sscanf(buffer, "%*s %u", &clusters_in_energy_file);
 			cluster_energy_table = (struct cluster_energy_info *)realloc(cluster_energy_table,
                                                clusters_in_energy_file * sizeof(struct cluster_energy_info));
 			continue;
 		}
 		if (strstr(buffer, "cluster") && !strstr(buffer, "cluster-")) {
-			sscanf(buffer, "cluster%c: %d cap states %d C states", &tmp,
+			sscanf(buffer, "cluster%c: %u cap states %u C states", &tmp,
 				&number_cap_states, &number_c_states);
 			current_cluster = tmp - 'A';
 			if (current_cluster >= (int) clusters_in_energy_file) {
@@ -244,7 +244,7 @@ int parse_energy_model(struct program_options *options)
 				fclose(f);
 				return -1;
 			}
-			sscanf(buffer, "%*s %d %d", &clust_w, &core_w);
+			sscanf(buffer, "%*s %u %u", &clust_w, &core_w);
 			clustp->wakeup_energy.cluster_wakeup_energy = clust_w;
 			clustp->wakeup_energy.core_wakeup_energy = core_w;
 			continue;
@@ -259,7 +259,7 @@ int parse_energy_model(struct program_options *options)
 			struct pstate_energy_info *pp;
 			unsigned int speed;
 
-			if (sscanf(buffer, "%d %d %d", &speed, &clust_p, &core_p) != 3) {
+			if (sscanf(buffer, "%u %u %u", &speed, &clust_p, &core_p) != 3) {
 				fprintf(stderr, "%s: expected P state (speed cluster core) for cluster%c in %s\n",
 					__func__, current_cluster, path);
 				fclose(f);
@@ -282,7 +282,7 @@ int parse_energy_model(struct program_options *options)
 			char name[NAMELEN];
 			struct cstate_energy_info *cp;
 
-			if (sscanf(buffer, "%s %d %d", name, &clust_p, &core_p) != 3) {
+			if (sscanf(buffer, "%s %u %u", name, &clust_p, &core_p) != 3) {
 				fprintf(stderr, "%s: expected C state (name cluster core) for cluster%c in %s\n",
 					__func__, current_cluster, path);
 				fclose(f);
