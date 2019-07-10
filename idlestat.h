@@ -132,7 +132,7 @@ struct trace_buffer_settings {
 struct program_options {
 	int mode;
 	int display;
-	unsigned int duration;
+	int duration;
 	struct trace_buffer_settings tbs;
 	char *filename;
 	char *baseline_filename;
