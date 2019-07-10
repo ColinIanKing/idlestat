@@ -139,7 +139,7 @@ static void compare_cstate_single_state(struct cpuidle_cstate *c,
 	diff.duration = c->duration - b->duration;
 	diff.nrdata = c->nrdata - b->nrdata;
 	diff.early_wakings = c->early_wakings - b->early_wakings;
-	diff.late_wakings = b->late_wakings - b->late_wakings;
+	diff.late_wakings = c->late_wakings - b->late_wakings;
 
 	printf("| %8s | ", c->name);
 	display_factored_time(c->min_time == DBL_MAX ? 0. :
